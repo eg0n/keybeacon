@@ -186,6 +186,21 @@ final class FloatingPanel: NSPanel {
         }
     }
 
+    /// On the desktop the panel shares the desktop icons' level, below every normal window.
+    var isOnDesktop: Bool {
+        get { settings.onDesktop }
+        set {
+            settings.onDesktop = newValue
+            applyWindowLevel()
+        }
+    }
+
+    private func applyWindowLevel() {
+        level = settings.onDesktop
+            ? NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)))
+            : .floating
+    }
+
     /// Pinned corner. When non-nil, the panel is anchored to the given corner
     /// of its *current* screen (determined by physical position), ignoring any
     /// saved absolute coordinates. When nil, the panel remembers absolute
@@ -219,7 +234,7 @@ final class FloatingPanel: NSPanel {
         )
         isOpaque = false
         backgroundColor = .clear
-        level = .floating
+        applyWindowLevel()
         isMovableByWindowBackground = true
         collectionBehavior = [.canJoinAllSpaces, .stationary]
         ignoresMouseEvents = isLocked

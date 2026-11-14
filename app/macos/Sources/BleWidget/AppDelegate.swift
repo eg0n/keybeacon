@@ -111,6 +111,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
             )
         )
 
+        let onDesktopItem = NSMenuItem(
+            title: L10n.text("Menu_OnDesktop"),
+            action: #selector(toggleOnDesktop), keyEquivalent: ""
+        )
+        onDesktopItem.state = panel.isOnDesktop ? .on : .off
+        menu.addItem(onDesktopItem)
+
         // "Pin to corner" submenu — anchors the panel to a visible-frame
         // corner of its current screen so it never drifts when the user
         // switches active window to another display.
@@ -208,6 +215,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
 
     @objc private func toggleLock() {
         panel.isLocked.toggle()
+    }
+
+    @objc private func toggleOnDesktop() {
+        panel.isOnDesktop.toggle()
+        buildMenu()
     }
 
     @objc private func togglePanelVisible() {

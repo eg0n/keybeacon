@@ -42,6 +42,7 @@ public final class AppSettings {
     private static let pinnedCornerKey = "panelPinnedCorner"
     private static let panelVisibleKey = "panelVisible"
     private static let displayModeKey = "panelDisplayMode"
+    private static let onDesktopKey = "panelOnDesktop"
     private static let languagePrefKey = "uiLanguage"
 
     private static let legacyPositionPrefix = "totemPanelFrame"
@@ -113,6 +114,12 @@ public final class AppSettings {
     public var locked: Bool {
         get { defaults.bool(forKey: Self.lockedKey) }
         set { defaults.set(newValue, forKey: Self.lockedKey) }
+    }
+
+    /// The panel sits on the desktop, behind every window, instead of floating above them.
+    public var onDesktop: Bool {
+        get { defaults.bool(forKey: Self.onDesktopKey) }
+        set { defaults.set(newValue, forKey: Self.onDesktopKey) }
     }
 
     // MARK: - Pinned corner (nil = remember absolute position, default)
