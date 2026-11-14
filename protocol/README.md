@@ -4,7 +4,7 @@
 
 **English** · [中文](#zh-kbp)
 
-**Version**: 1.2.0 · **License**: MIT · **Status**: Released standard
+**Version**: 1.3.0 · **License**: MIT · **Status**: Released standard
 
 > **What this is**: KeyBeacon is an open, implementation-neutral protocol by which a keyboard
 > reports its **live internal state the host cannot otherwise know** — the active layer and the
@@ -191,6 +191,11 @@ tool automates):
 
 ## 13. Changelog
 
+- **1.3.0** — KBP 1.3 (MINOR): adds the optional Activity characteristic `AA440AA5-…`
+  (`[wpm, layer_count, flags]`, flags = Caps Word and the host's Caps Lock), defines
+  Connectivity byte `[7]` (`open_profiles`, which profiles have no bonded host), specifies the
+  dongle topology for `split_link_flags` and Battery, and adds KBP over USB HID for keyboards
+  reached by USB. All earlier payloads are unchanged. See §16 and `CHANGELOG.md` 1.3.0.
 - **1.2.0** — KBP 1.2 (MINOR): adds one optional, read-only characteristic
   `AA440AA4-…` (per-link host context: the bonded slot *this* BLE connection maps
   to, learned with zero configuration), enabling "in use on this computer" vs
@@ -257,6 +262,8 @@ Both characteristics live under the **same** primary service as KBP 1.0
 | `[5]` | 1 | `output_endpoint` | 0 = unknown / 1 = USB / 2 = BLE / 3–255 reserved (future use) |
 | `[6]` | 1 | `charging_flags` | bit 0: left_charging (overall when `is_split = 0`, **requires** `has_left_charging = 1`); bit 1: right_charging (**requires** `is_split = 1` **and** `has_right_charging = 1`; firmware MUST emit 0 when `is_split = 0`); bits 2–7 reserved |
 | `[7..N]` | ≥ 0 | reserved trailing bytes | future MINOR fields; **producer** emits 0 bytes in 1.1 (payload is exactly 7 bytes); **consumer** MUST ignore the tail |
+
+KBP 1.3 defines byte `[7]` (`open_profiles`, §16.3); a 1.3 producer emits 8 bytes.
 
 #### 14.3.2 `capability_bits` (byte 0)
 
@@ -477,6 +484,83 @@ This section introduces the following new conformance items (implemented in
 
 API names may evolve across ZMK releases; the implementation phase (`zmk-keybeacon` module) MUST verify against ZMK main at build time.
 
+## 16. KBP 1.3 Activity, open profiles, dongles and USB (optional)
+
+### 16.1 Scope & version
+
+- **KBP MINOR**: **1.3**. Service UUID `AA440AA0-…` and the AA1–AA4 payloads are unchanged.
+- Everything in this section is optional. A 1.2 host ignores the new characteristic and the new
+  Connectivity byte; a 1.3 host treats their absence as "not reported".
+
+### 16.2 Activity characteristic (`AA440AA5-…`)
+
+`READ` | `NOTIFY` with a CCC, under the same service. Little-endian, **length ≥ 2**:
+
+| Offset | Size | Field | Encoding |
+|--------|------|-------|----------|
+| `[0]` | 1 | `wpm` | words per minute, `0..254`; `255` = the keyboard computes none |
+| `[1]` | 1 | `layer_count` | layers in the keymap, so a host can draw one mark per layer; `0` = unknown |
+| `[2]` | 1 | `flags` | bit 0: Caps Word active; bit 1: Caps Lock on (the host's own LED, as reported to the keyboard by the host it is typing to); bits 2–7 reserved, 0. Optional: a 2-byte payload means all flags 0 |
+| `[3..N]` | ≥ 0 | reserved | consumer MUST ignore |
+
+- **Producer**: notify when any byte changes (the §5 snapshot-suppression rule applies). WPM may
+  change several times a second while typing; it SHOULD settle to `0` when typing stops.
+- **Consumer**: payload < 2 bytes → drop. A missing `[2]` means no flags.
+
+### 16.3 Connectivity byte `[7]`: `open_profiles`
+
+| Offset | Size | Field | Encoding |
+|--------|------|-------|----------|
+| `[7]` | 1 | `open_profiles` | bit *n* set = profile *n*+1 has no bonded host (empty, or waiting to pair); profiles beyond 8 are not reported |
+
+A host can draw empty profiles differently from paired ones. A 7-byte payload means
+`open_profiles` is not reported; only the active profile's `profile_open` bit (§14.3.1) is known.
+
+### 16.4 Dongle topology
+
+When the keyboard's central is a dongle and **both halves are peripherals**:
+
+- `split_link_flags` bit 0 is the **left half's link** (peripheral 0) and bit 1 the right
+  half's (peripheral 1). Bit 0 is no longer implied by the central.
+- Battery `[0]` / `[1]` are the left and right halves' levels; the dongle's own supply is not
+  reported. `255` until a half has reported a level.
+- `is_split` and `has_split_link` stay 1, so the payload shapes are those of a split keyboard.
+
+### 16.5 KBP over USB HID
+
+A keyboard reached by USB, whose host may have no BLE link to it, MAY expose the same payloads on
+a **vendor-defined HID interface**:
+
+| Item | Value |
+|------|-------|
+| Usage page / usage | `0xFFAA` / `0x44` (top-level application collection) |
+| Report IDs | `1` = AA1 status, `2` = AA2 connectivity, `3` = AA3 battery, `4` = AA5 activity |
+| Report body | **15 bytes** after the report ID: `[length]`, then `length` payload bytes, then zeros |
+| Input report | sent when that payload changes (the NOTIFY of BLE) |
+| Feature report | Get_Report returns the payload's current value (the READ of BLE) |
+
+- The report fits one 16-byte HID interrupt packet, so a payload is at most **14 bytes**: an AA1
+  `layer_name` is cut to 12 bytes, at a UTF-8 character boundary.
+- **Identity**: the display name is the USB product string; a host remembers the keyboard by
+  its USB vendor, product and serial number.
+- **Discovery**: a host matches the usage page and usage, then reads feature reports 2, 3, 1
+  and 4 (Connectivity first, so it knows `is_split` before Battery). A report that fails or is
+  absent means that payload is not exposed, as a missing characteristic would on BLE.
+- AA4 has no USB report: a host on USB is the computer the keyboard is plugged into, so output
+  endpoint USB means "in use here".
+- A vendor-defined interface needs no input-monitoring permission on macOS.
+
+### 16.6 Firmware reference mapping (non-normative, ZMK)
+
+| KBP 1.3 field | ZMK reference source |
+|------|------|
+| `wpm` | `zmk_wpm_get_state()`, notified on `zmk_wpm_state_changed` |
+| `layer_count` | `ZMK_KEYMAP_LAYERS_LEN` |
+| Caps Word | a `zmk_caps_word_state_changed` event, where the ZMK tree provides one |
+| Caps Lock | `zmk_hid_indicators_get_current_profile() & HID_INDICATOR_CAPS_LOCK` (`CONFIG_ZMK_HID_INDICATORS`) |
+| `open_profiles` | `zmk_ble_profile_is_open(i)` per profile |
+| dongle links | the split transport's per-peripheral link state (e.g. zmk-split-esb's link event) |
+
 ---
 
 # KeyBeacon 协议（KBP）— 中文版
@@ -653,6 +737,11 @@ MAJOR 版本信号。
 
 ## §13. 变更日志
 
+- **1.3.0** — KBP 1.3（MINOR）：新增可选 Activity 特征 `AA440AA5-…`
+  （`[wpm, layer_count, flags]`，flags = Caps Word 与主机的 Caps Lock），定义 Connectivity
+  第 `[7]` 字节（`open_profiles`：哪些 profile 未绑定主机），规定接收器（dongle）拓扑下
+  `split_link_flags` 与 Battery 的含义，并新增经 USB HID 传输 KBP。此前全部载荷均不变。详见 §16
+  与 `CHANGELOG.md` 1.3.0。
 - **1.2.0** — KBP 1.2（MINOR）：新增一个可选、只读特征 `AA440AA4-…`（每连接主机
   上下文：**本** BLE 连接对应的已绑定槽位，零配置学到），使同时绑定的多台主机间可区分
   "在此电脑使用"与"在另一台电脑使用"；服务 UUID 与全部 1.0/1.1 载荷均不变。详见 §15
@@ -907,3 +996,69 @@ API 名随 ZMK 版本可能有变；实施阶段（`zmk-keybeacon` 外部模块�
 | `local_link_profile` | 在 GATT read 回调中，用 `bt_conn_get_dst(conn)` 把 peer 解析到已绑定 profile 索引（与绑定槽位身份表比对）；无匹配槽位时发 `0` |
 
 API 名随 ZMK 版本可能有变；实施阶段（`zmk-keybeacon` 外部模块）必须 核对当前 ZMK main 分支的实际符号。
+
+## §16. KBP 1.3 活动、空 profile、接收器与 USB（可选）
+
+### §16.1 范围与版本
+
+- **KBP MINOR**：**1.3**。服务 UUID `AA440AA0-…` 与 AA1–AA4 载荷均不变。
+- 本节内容全部可选。1.2 主机忽略新特征与 Connectivity 新字节；1.3 主机把它们缺失视为"未上报"。
+
+### §16.2 Activity 特征（`AA440AA5-…`）
+
+`READ` | `NOTIFY`（含 CCC），位于同一服务下。小端序，**长度 ≥ 2**：
+
+| 偏移 | 长度 | 字段 | 编码 |
+|------|------|------|------|
+| `[0]` | 1 | `wpm` | 每分钟单词数 `0..254`；`255` = 键盘不计算 |
+| `[1]` | 1 | `layer_count` | 键位图的层数，供主机每层画一个标记；`0` = 未知 |
+| `[2]` | 1 | `flags` | bit 0：Caps Word 生效；bit 1：Caps Lock 开（键盘正在输入的那台主机报给键盘的 LED 状态）；bit 2–7 保留，为 0。可省略：2 字节载荷表示全部为 0 |
+| `[3..N]` | ≥ 0 | 保留 | 消费者必须忽略 |
+
+- **生产者**：任一字节变化即 notify（沿用 §5 快照不变抑制）。打字时 WPM 每秒可变化数次，停止打字后应回落到 `0`。
+- **消费者**：载荷 < 2 字节则丢弃；缺少 `[2]` 表示无标志。
+
+### §16.3 Connectivity 第 `[7]` 字节：`open_profiles`
+
+| 偏移 | 长度 | 字段 | 编码 |
+|------|------|------|------|
+| `[7]` | 1 | `open_profiles` | bit *n* 置位 = profile *n*+1 未绑定主机（空，或等待配对）；第 8 个之后的 profile 不上报 |
+
+主机可据此把空 profile 与已配对的区分显示。7 字节载荷表示未上报 `open_profiles`，仅知道当前 profile 的 `profile_open` 位（§14.3.1）。
+
+### §16.4 接收器（dongle）拓扑
+
+当键盘的 central 是接收器、**两半都是 peripheral** 时：
+
+- `split_link_flags` bit 0 为**左半的链路**（peripheral 0），bit 1 为右半（peripheral 1）；bit 0 不再由 central 隐含。
+- Battery `[0]` / `[1]` 为左右两半的电量；不上报接收器自身的供电。某半上报电量之前为 `255`。
+- `is_split` 与 `has_split_link` 保持为 1，载荷形状与分体键盘一致。
+
+### §16.5 经 USB HID 传输 KBP
+
+经 USB 连接、主机可能与其没有 BLE 链路的键盘，可以在一个**厂商自定义 HID 接口**上提供相同载荷：
+
+| 项 | 值 |
+|----|----|
+| Usage page / usage | `0xFFAA` / `0x44`（顶层 application collection） |
+| Report ID | `1` = AA1 状态，`2` = AA2 连接，`3` = AA3 电量，`4` = AA5 活动 |
+| Report 主体 | report ID 之后 **15 字节**：`[length]`，接着 `length` 个载荷字节，其余补 0 |
+| Input report | 该载荷变化时发送（对应 BLE 的 NOTIFY） |
+| Feature report | Get_Report 返回该载荷的当前值（对应 BLE 的 READ） |
+
+- 一个 report 正好放进 16 字节的 HID 中断包，因此载荷至多 **14 字节**：AA1 的 `layer_name` 截断到 12 字节，且在 UTF-8 字符边界处截断。
+- **身份**：显示名为 USB 产品字符串；主机以 USB 厂商 ID、产品 ID 与序列号记住键盘。
+- **发现**：主机按 usage page 与 usage 匹配，然后依次读取 feature report 2、3、1、4（先读 Connectivity，以便在读 Battery 前知道 `is_split`）。读取失败或不存在的 report 表示该载荷未提供，等同 BLE 上缺少该特征。
+- AA4 没有 USB report：经 USB 连接的主机就是键盘插着的那台电脑，因此输出端点为 USB 即表示"在此电脑使用"。
+- 在 macOS 上，厂商自定义接口无需"输入监控"权限。
+
+### §16.6 固件参考映射（非规范性，ZMK）
+
+| KBP 1.3 字段 | ZMK 参考源 |
+|-------------|-----------|
+| `wpm` | `zmk_wpm_get_state()`，在 `zmk_wpm_state_changed` 时 notify |
+| `layer_count` | `ZMK_KEYMAP_LAYERS_LEN` |
+| Caps Word | ZMK 树提供的 `zmk_caps_word_state_changed` 事件 |
+| Caps Lock | `zmk_hid_indicators_get_current_profile() & HID_INDICATOR_CAPS_LOCK`（`CONFIG_ZMK_HID_INDICATORS`） |
+| `open_profiles` | 逐个 profile 调用 `zmk_ble_profile_is_open(i)` |
+| 接收器链路 | 分体传输的每个 peripheral 链路状态（如 zmk-split-esb 的链路事件） |

@@ -12,6 +12,27 @@ implementers (apps, firmware pins) resolve against.
 The format follows [Keep a Changelog](https://keepachangelog.com/) loosely and
 [Semantic Versioning](https://semver.org/).
 
+## 1.3.0
+
+**Released as tag `protocol-v1.3.0`.** MINOR amendment to KBP 1.x; all earlier wire contracts
+are unchanged.
+
+### Added
+
+- **Activity characteristic** `AA440AA5-F5ED-4C48-84A1-8062D20D3D55` (`READ` | `NOTIFY`):
+  `[wpm, layer_count, flags]`, flags bit 0 Caps Word and bit 1 the host's Caps Lock (§16.2).
+- **Connectivity byte `[7]`**, `open_profiles`: which profiles have no bonded host (§16.3).
+- **Dongle topology**: with both halves as peripherals, `split_link_flags` bit 0 and Battery
+  `[0]` are the left half's, bit 1 and `[1]` the right half's (§16.4).
+- **KBP over USB HID**: the AA1–AA3 and AA5 payloads on a vendor-defined interface (usage page
+  `0xFFAA`, usage `0x44`), input reports on change and feature reports for reads (§16.5).
+
+### Migration
+
+- Hosts: optional. Read `AA5` and Connectivity byte `[7]` when present; match the USB
+  interface to see keyboards on USB.
+- Firmware: optional. A 1.3 producer's Connectivity payload is 8 bytes.
+
 ## 1.2.0
 
 **Released as tag `protocol-v1.2.0`.** MINOR amendment to KBP 1.x; the KBP 1.0
@@ -168,6 +189,25 @@ the existing contract; it does not alter bytes on the air.
 
 格式大致遵循 [Keep a Changelog](https://keepachangelog.com/) 与
 [语义化版本](https://semver.org/)。
+
+## 1.3.0
+
+**以标签 `protocol-v1.3.0` 发布。** 对 KBP 1.x 的 MINOR 修订；此前全部线上契约均不变。
+
+### 新增
+
+- **Activity 特征** `AA440AA5-F5ED-4C48-84A1-8062D20D3D55`（`READ` | `NOTIFY`）：
+  `[wpm, layer_count, flags]`，flags bit 0 为 Caps Word，bit 1 为主机的 Caps Lock（§16.2）。
+- **Connectivity 第 `[7]` 字节** `open_profiles`：哪些 profile 未绑定主机（§16.3）。
+- **接收器拓扑**：两半都是 peripheral 时，`split_link_flags` bit 0 与 Battery `[0]` 属于左半，
+  bit 1 与 `[1]` 属于右半（§16.4）。
+- **经 USB HID 传输 KBP**：AA1–AA3 与 AA5 载荷位于厂商自定义接口（usage page `0xFFAA`，usage
+  `0x44`），变化时发 input report，读取用 feature report（§16.5）。
+
+### 迁移
+
+- 主机：可选。存在时读取 `AA5` 与 Connectivity 第 `[7]` 字节；匹配 USB 接口以发现经 USB 连接的键盘。
+- 固件：可选。1.3 生产者的 Connectivity 载荷为 8 字节。
 
 ## 1.2.0
 
