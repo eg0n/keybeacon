@@ -36,6 +36,8 @@ public protocol BLEClientDelegate: AnyObject {
     /// `nil` means the keyboard exposes no `AA440AA4-…` (old firmware) or the
     /// link is down → the host hides the per-link row (no new UI, CF-8).
     func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?)
+    /// KBP 1.3 Activity snapshot (WPM, layer count); only when the keyboard exposes `AA440AA5-…`.
+    func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus)
 }
 
 public extension BLEClientDelegate {
@@ -46,6 +48,7 @@ public extension BLEClientDelegate {
     func bleClient(_ client: BLEClient, didUpdateBattery status: BatteryStatus) {}
     func bleClient(_ client: BLEClient, didDetermineKBPMinor minor: KBPMinor) {}
     func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?) {}
+    func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus) {}
 }
 
 /// Declared MINOR of the currently connected keyboard, derived from GATT
@@ -71,6 +74,9 @@ public final class BLEClient: NSObject {
     )
     public static let linkSlotCharacteristicUUID = CBUUID(
         string: "AA440AA4-F5ED-4C48-84A1-8062D20D3D55"
+    )
+    public static let activityCharacteristicUUID = CBUUID(
+        string: "AA440AA5-F5ED-4C48-84A1-8062D20D3D55"
     )
     private static let hidServiceUUID = CBUUID(string: "1812")
 
@@ -664,6 +670,7 @@ extension BLEClient: CBPeripheralDelegate {
         let connChar = chars.first { $0.uuid == Self.connectivityCharacteristicUUID }
         let battChar = chars.first { $0.uuid == Self.batteryCharacteristicUUID }
         let linkChar = chars.first { $0.uuid == Self.linkSlotCharacteristicUUID }
+        let activityChar = chars.first { $0.uuid == Self.activityCharacteristicUUID }
 
         // The 1.0 characteristic is REQUIRED; without it this is not a
         // conformant keyboard.
@@ -690,6 +697,11 @@ extension BLEClient: CBPeripheralDelegate {
         if let battChar = battChar {
             peripheral.readValue(for: battChar)
             peripheral.setNotifyValue(true, for: battChar)
+        }
+        // KBP 1.3 Activity (AA5) is OPTIONAL.
+        if let activityChar = activityChar {
+            peripheral.readValue(for: activityChar)
+            peripheral.setNotifyValue(true, for: activityChar)
         }
 
         // KBP 1.2 Link-slot (AA4) is OPTIONAL and READ-only (no NOTIFY / no CCC).
@@ -757,6 +769,9 @@ extension BLEClient: CBPeripheralDelegate {
             handleBatteryUpdate(data)
         case Self.linkSlotCharacteristicUUID:
             handleLinkSlotRead(data)
+        case Self.activityCharacteristicUUID:
+            guard let status = ActivityStatus.parse(from: data) else { return }
+            delegate?.bleClient(self, didUpdateActivity: status)
         default:
             break
         }

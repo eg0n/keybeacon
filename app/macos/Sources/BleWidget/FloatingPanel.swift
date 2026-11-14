@@ -15,6 +15,12 @@ final class FloatingPanel: NSPanel {
     private let settings = AppSettings()
 
     private let topRow = NSView()
+    // displayMode == .prospector: the Prospector dongle's Operator screen, replacing the rest.
+    private let operatorScreen: OperatorScreenView = {
+        let v = OperatorScreenView(frame: NSRect(origin: .zero, size: OperatorScreenView.screenSize))
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
     private let layerLabel = NSTextField(labelWithString: "")
     private let modLabels: [NSTextField] = ["⇧", "⌃", "⌥", "⌘"].map {
         NSTextField(labelWithString: $0)
@@ -272,6 +278,7 @@ final class FloatingPanel: NSPanel {
         vstack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 10, right: 10)
         content.addSubview(vstack)
         content.addSubview(compactRow)
+        content.addSubview(operatorScreen)
 
         NSLayoutConstraint.activate([
             vstack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -289,6 +296,10 @@ final class FloatingPanel: NSPanel {
             compactRow.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -10),
             compactRow.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             compactRow.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            operatorScreen.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            operatorScreen.topAnchor.constraint(equalTo: content.topAnchor),
+            operatorScreen.widthAnchor.constraint(equalToConstant: OperatorScreenView.screenSize.width),
+            operatorScreen.heightAnchor.constraint(equalToConstant: OperatorScreenView.screenSize.height),
         ])
 
         contentView = content
@@ -618,7 +629,15 @@ final class FloatingPanel: NSPanel {
             topRow.isHidden = true
             connectivityCard.isHidden = true
             compactRow.isHidden = false
+        case .prospector:
+            topRow.isHidden = true
+            connectivityCard.isHidden = true
+            compactRow.isHidden = true
         }
+        operatorScreen.isHidden = mode != .prospector
+        // The screen draws its own opaque black face.
+        contentView?.layer?.backgroundColor = mode == .prospector
+            ? NSColor.clear.cgColor : NSColor.black.withAlphaComponent(0.55).cgColor
         // Re-render so the newly-visible layout picks up current data.
         renderConnectivity()
         reflowFrameToContent()
@@ -694,6 +713,7 @@ final class FloatingPanel: NSPanel {
 
     func update(connectivity status: ConnectivityStatus) {
         cachedConnectivity = status
+        operatorScreen.update(connectivity: status)
         let now = CFAbsoluteTimeGetCurrent()
         if status.capability.hasHostConnection {
             staleness.recordNotify(fieldKey: "host_connection", at: now)
@@ -712,6 +732,7 @@ final class FloatingPanel: NSPanel {
 
     func update(battery status: BatteryStatus) {
         cachedBatteryStatus = status
+        operatorScreen.update(battery: status)
         let now = CFAbsoluteTimeGetCurrent()
         switch status.kind {
         case .overall(let reading):
@@ -1216,7 +1237,10 @@ final class FloatingPanel: NSPanel {
         contentView?.layoutSubtreeIfNeeded()
         let desiredHeight: CGFloat
         let desiredWidth: CGFloat
-        if settings.displayMode == .compact {
+        if settings.displayMode == .prospector {
+            desiredHeight = OperatorScreenView.screenSize.height
+            desiredWidth = OperatorScreenView.screenSize.width
+        } else if settings.displayMode == .compact {
             let rowHeight = max(22, compactRow.fittingSize.height)
             desiredHeight = rowHeight + 16
             let rowWidth = compactRow.fittingSize.width
@@ -1342,8 +1366,14 @@ final class FloatingPanel: NSPanel {
         }
     }
 
+    /// KBP 1.3 Activity: only the Prospector screen draws WPM and the layer count.
+    func update(activity status: ActivityStatus) {
+        operatorScreen.update(activity: status)
+    }
+
     func update(_ status: KeyboardStatus) {
         cachedStatus = status
+        operatorScreen.update(status: status)
         let txt = status.connected ? status.layerName : L10n.text("State_Disconnected")
         layerLabel.stringValue = txt
         compactLayerLabel.stringValue = txt

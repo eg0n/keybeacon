@@ -329,6 +329,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
         guard !usbActive else { return }
         panel.update(hostStatus: status)
     }
+
+    func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus) {
+        guard !usbActive else { return }
+        panel.update(activity: status)
+    }
 }
 
 extension AppDelegate: USBHIDClientDelegate {
@@ -371,5 +376,9 @@ extension AppDelegate: USBHIDClientDelegate {
 
     func usbClient(_ client: USBHIDClient, didUpdateHostStatus status: LocalHostStatus?) {
         panel.update(hostStatus: status)
+    }
+
+    func usbClient(_ client: USBHIDClient, didUpdateActivity status: ActivityStatus) {
+        panel.update(activity: status)
     }
 }

@@ -11,9 +11,10 @@ public protocol USBHIDClientDelegate: AnyObject {
     func usbClient(_ client: USBHIDClient, didUpdateConnectivity status: ConnectivityStatus)
     func usbClient(_ client: USBHIDClient, didUpdateBattery status: BatteryStatus)
     func usbClient(_ client: USBHIDClient, didUpdateHostStatus status: LocalHostStatus?)
+    func usbClient(_ client: USBHIDClient, didUpdateActivity status: ActivityStatus)
 }
 
-/// KBP over USB HID (protocol/README.md §16): the AA1–AA3 payloads on a vendor-defined HID
+/// KBP over USB HID (protocol/README.md §16): the AA1–AA3 and AA5 payloads on a vendor-defined HID
 /// interface, one report ID per characteristic. Feature reports are READs, input reports NOTIFYs.
 /// A vendor-defined interface needs no Input Monitoring permission.
 public final class USBHIDClient {
@@ -24,6 +25,7 @@ public final class USBHIDClient {
         case status = 1        // AA1
         case connectivity = 2  // AA2
         case battery = 3       // AA3
+        case activity = 4      // AA5
     }
 
     /// Report ID plus 15 bytes: the payload's length, the payload, then zeros.
@@ -102,6 +104,7 @@ public final class USBHIDClient {
         let connectivity = readFeature(.connectivity)
         let battery = readFeature(.battery)
         let status = readFeature(.status)
+        let activity = readFeature(.activity)
         let minor: KBPMinor = connectivity != nil ? .onePointOne(hasBattery: battery != nil) : .onePointZero
 
         let keyboard = CompatibleKeyboard(
@@ -115,6 +118,7 @@ public final class USBHIDClient {
         if let connectivity { handle(.connectivity, payload: connectivity) }
         if let battery { handle(.battery, payload: battery) }
         if let status { handle(.status, payload: status) }
+        if let activity { handle(.activity, payload: activity) }
     }
 
     private func detach(_ device: IOHIDDevice) {
@@ -169,6 +173,9 @@ public final class USBHIDClient {
                 return
             }
             delegate?.usbClient(self, didUpdateBattery: status)
+        case .activity:
+            guard let status = ActivityStatus.parse(from: payload) else { return }
+            delegate?.usbClient(self, didUpdateActivity: status)
         }
     }
 

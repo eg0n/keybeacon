@@ -22,11 +22,14 @@ public enum PinnedCorner: String, CaseIterable {
 public enum DisplayMode: String, CaseIterable {
     case full = "full"
     case compact = "compact"
+    /// The Prospector dongle's Operator status screen.
+    case prospector = "prospector"
 
     public var displayName: String {
         switch self {
         case .full: return L10n.text("Menu_DisplayFull")
         case .compact: return L10n.text("Menu_DisplayCompact")
+        case .prospector: return L10n.text("Menu_DisplayProspector")
         }
     }
 }
