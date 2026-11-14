@@ -22,8 +22,8 @@ public struct KeyboardState: Equatable {
     public var layerIndex: UInt8 = 0
     /// The keymap's name for the layer, or "L<index>" when it has none.
     public var layerName = ""
-    /// Every layer name seen so far, by index: KBP reports only the active layer's, so screens that
-    /// show other layers learn them as they come up.
+    /// Every layer's name, by index: read from the keyboard (KBP 1.4 Layer Name) or, without it,
+    /// learned as each layer comes up.
     public var layerNames: [UInt8: String] = [:]
     /// Held modifiers, in the HID modifier byte's layout (KBP §4.1).
     public var mods: UInt8 = 0
@@ -125,6 +125,12 @@ public struct KeyboardStateStore {
         state.layerCount = activity.layerCount > 0 ? activity.layerCount : nil
         state.capsWord = activity.capsWord
         state.capsLock = activity.capsLock
+    }
+
+    /// A name read by index; "L<index>" when the keymap gives the layer none, as for AA1.
+    public mutating func apply(_ layer: LayerName) {
+        guard layer.layerCount == 0 || layer.index < layer.layerCount else { return }
+        state.layerNames[layer.index] = layer.name.isEmpty ? "L\(layer.index)" : layer.name
     }
 
     public mutating func apply(hostStatus: LocalHostStatus?) {

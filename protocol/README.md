@@ -4,7 +4,7 @@
 
 **English** · [中文](#zh-kbp)
 
-**Version**: 1.3.0 · **License**: MIT · **Status**: Released standard
+**Version**: 1.4.0 · **License**: MIT · **Status**: Released standard
 
 > **What this is**: KeyBeacon is an open, implementation-neutral protocol by which a keyboard
 > reports its **live internal state the host cannot otherwise know** — the active layer and the
@@ -561,6 +561,50 @@ a **vendor-defined HID interface**:
 | `open_profiles` | `zmk_ble_profile_is_open(i)` per profile |
 | dongle links | the split transport's per-peripheral link state (e.g. zmk-split-esb's link event) |
 
+## 17. KBP 1.4 Layer names (optional)
+
+### 17.1 Scope & version
+
+- **KBP MINOR**: **1.4**. Service UUID `AA440AA0-…` and the AA1–AA5 payloads are unchanged.
+- AA1 carries only the active layer's name. A host that shows other layers (a roller, a list)
+  can look each one up here; without this characteristic it learns names as layers become active.
+
+### 17.2 Layer Name characteristic (`AA440AA6-…`)
+
+`READ` | `WRITE`, no CCC, under the same service. A lookup:
+
+1. The host **writes** one byte, the layer index (`0..layer_count-1`, as in AA1 `[0]`).
+2. The host **reads** `[layer_index, layer_count, layer_name...]` for that index:
+
+| Offset | Size | Field | Encoding |
+|--------|------|-------|----------|
+| `[0]` | 1 | `layer_index` | the index last written; `0` before any write |
+| `[1]` | 1 | `layer_count` | layers in the keymap, as AA5 `[1]` |
+| `[2..N]` | ≥ 0 | `layer_name` | UTF-8, no terminator, as AA1's; empty when the layer has no name or the index is past the last layer |
+
+- **Producer**: the selection is one value for the keyboard, not per host; a write of more than
+  one byte uses the first. A read always reflects the current keymap (names may change at run time).
+- **Consumer**: write, wait for the write response, then read; check `layer_index` against the
+  index written and drop a mismatch. Look layers up one at a time, `0` to `layer_count - 1`,
+  after connecting. Payload < 2 bytes → drop. An empty name reads as `L<index>`, as for AA1.
+
+### 17.3 Over USB HID
+
+Report ID **`5`** = AA6, **feature report only** (no input report), with the §16.5 body:
+
+- **Select**: Set_Report (feature, ID 5) with body `[1, layer_index]`. A host MAY prefix the
+  report ID byte, as macOS does; the keyboard skips it.
+- **Read**: Get_Report (feature, ID 5) returns the payload above; `layer_name` is cut to 12 bytes
+  at a UTF-8 character boundary, as for AA1.
+- A keyboard without AA6 has no report 5: the Set_Report fails, and the host stops looking.
+
+### 17.4 Firmware reference mapping (non-normative, ZMK)
+
+| KBP 1.4 field | ZMK reference source |
+|------|------|
+| `layer_name` | `zmk_keymap_layer_name(zmk_keymap_layer_index_to_id(layer_index))` |
+| `layer_count` | `ZMK_KEYMAP_LAYERS_LEN` |
+
 ---
 
 # KeyBeacon 协议（KBP）— 中文版
@@ -569,7 +613,7 @@ a **vendor-defined HID interface**:
 
 <a id="zh-kbp"></a>
 
-**版本**：1.2.0 · **许可**：MIT · **状态**：已发布标准
+**版本**：1.4.0 · **许可**：MIT · **状态**：已发布标准
 
 > **本文档是什么**：KeyBeacon 是一个开放的、与实现无关的协议。通过该协议，键盘可将**主机无法直接
 > 获知的活跃内部状态**——当前激活的层与按住的修饰键——通过 BLE 上报给桌面应用。本文档是该接口的
@@ -1062,3 +1106,41 @@ API 名随 ZMK 版本可能有变；实施阶段（`zmk-keybeacon` 外部模块�
 | Caps Lock | `zmk_hid_indicators_get_current_profile() & HID_INDICATOR_CAPS_LOCK`（`CONFIG_ZMK_HID_INDICATORS`） |
 | `open_profiles` | 逐个 profile 调用 `zmk_ble_profile_is_open(i)` |
 | 接收器链路 | 分体传输的每个 peripheral 链路状态（如 zmk-split-esb 的链路事件） |
+
+## §17. KBP 1.4 层名（可选）
+
+### §17.1 范围与版本
+
+- **KBP MINOR**：**1.4**。服务 UUID `AA440AA0-…` 与 AA1–AA5 载荷均不变。
+- AA1 只携带当前层的名字。需要显示其他层（滚轮、列表）的主机可在此逐个查询；没有此特征时，主机只能在各层被激活时逐步得知其名字。
+
+### §17.2 Layer Name 特征（`AA440AA6-…`）
+
+`READ` | `WRITE`，无 CCC，位于同一服务下。查询流程：
+
+1. 主机**写入**一个字节：层索引（`0..layer_count-1`，同 AA1 `[0]`）。
+2. 主机**读取**该索引的 `[layer_index, layer_count, layer_name...]`：
+
+| 偏移 | 长度 | 字段 | 编码 |
+|------|------|------|------|
+| `[0]` | 1 | `layer_index` | 最近一次写入的索引；未写入前为 `0` |
+| `[1]` | 1 | `layer_count` | 键位图的层数，同 AA5 `[1]` |
+| `[2..N]` | ≥ 0 | `layer_name` | UTF-8，无结束符，同 AA1；该层无名或索引超出最后一层时为空 |
+
+- **生产者**：选择是键盘上的单一值，不区分主机；写入多于一个字节时取第一个。读取总是反映当前键位图（名字可能在运行时改变）。
+- **消费者**：写入，等待写响应，再读取；核对 `layer_index` 与写入的索引，不一致则丢弃。连接后从 `0` 到 `layer_count - 1` 逐个查询。载荷 < 2 字节则丢弃。空名字按 AA1 的做法显示为 `L<索引>`。
+
+### §17.3 经 USB HID
+
+Report ID **`5`** = AA6，**仅 feature report**（无 input report），主体格式同 §16.5：
+
+- **选择**：Set_Report（feature，ID 5），主体 `[1, layer_index]`。主机可以在前面带上 report ID 字节（macOS 即如此），键盘会跳过它。
+- **读取**：Get_Report（feature，ID 5）返回上述载荷；`layer_name` 截断到 12 字节，且在 UTF-8 字符边界处截断，同 AA1。
+- 不支持 AA6 的键盘没有 report 5：Set_Report 失败，主机即停止查询。
+
+### §17.4 固件参考映射（非规范性，ZMK）
+
+| KBP 1.4 字段 | ZMK 参考源 |
+|-------------|-----------|
+| `layer_name` | `zmk_keymap_layer_name(zmk_keymap_layer_index_to_id(layer_index))` |
+| `layer_count` | `ZMK_KEYMAP_LAYERS_LEN` |

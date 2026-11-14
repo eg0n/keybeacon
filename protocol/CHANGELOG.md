@@ -12,6 +12,38 @@ implementers (apps, firmware pins) resolve against.
 The format follows [Keep a Changelog](https://keepachangelog.com/) loosely and
 [Semantic Versioning](https://semver.org/).
 
+## 1.4.0
+
+**Released as tag `protocol-v1.4.0`.** MINOR amendment to KBP 1.x; all earlier wire contracts
+are unchanged.
+
+### Added
+
+- **Layer Name characteristic** `AA440AA6-F5ED-4C48-84A1-8062D20D3D55` (`READ` | `WRITE`): write
+  a layer index, read `[layer_index, layer_count, layer_name]`, so a host can name every layer
+  rather than only the active one (§17.2).
+- **USB HID feature report 5** for the same lookup: Set_Report selects, Get_Report reads (§17.3).
+
+### Migration
+
+- Hosts: optional. Look each layer up after connecting when `AA6` (or report 5) is present.
+- Firmware: optional.
+
+## 1.4.0
+
+**以标签 `protocol-v1.4.0` 发布。** 对 KBP 1.x 的 MINOR 修订；此前全部线上契约均不变。
+
+### 新增
+
+- **Layer Name 特征** `AA440AA6-F5ED-4C48-84A1-8062D20D3D55`（`READ` | `WRITE`）：写入层索引，读取
+  `[layer_index, layer_count, layer_name]`，主机因此能显示每一层的名字，而不只是当前层（§17.2）。
+- **USB HID feature report 5** 提供同样的查询：Set_Report 选择，Get_Report 读取（§17.3）。
+
+### 迁移
+
+- 主机：可选。连接后若存在 `AA6`（或 report 5），逐层查询。
+- 固件：可选。
+
 ## 1.3.0
 
 **Released as tag `protocol-v1.3.0`.** MINOR amendment to KBP 1.x; all earlier wire contracts

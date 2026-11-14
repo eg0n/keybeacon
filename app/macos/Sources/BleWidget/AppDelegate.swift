@@ -356,6 +356,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
         guard !usbActive else { return }
         panel.update(activity: status)
     }
+
+    func bleClient(_ client: BLEClient, didReadLayerName layer: LayerName) {
+        guard !usbActive else { return }
+        panel.update(layerName: layer)
+    }
 }
 
 extension AppDelegate: USBHIDClientDelegate {
@@ -402,5 +407,9 @@ extension AppDelegate: USBHIDClientDelegate {
 
     func usbClient(_ client: USBHIDClient, didUpdateActivity status: ActivityStatus) {
         panel.update(activity: status)
+    }
+
+    func usbClient(_ client: USBHIDClient, didReadLayerName layer: LayerName) {
+        panel.update(layerName: layer)
     }
 }

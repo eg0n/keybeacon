@@ -12,11 +12,13 @@ public protocol USBHIDClientDelegate: AnyObject {
     func usbClient(_ client: USBHIDClient, didUpdateBattery status: BatteryStatus)
     func usbClient(_ client: USBHIDClient, didUpdateHostStatus status: LocalHostStatus?)
     func usbClient(_ client: USBHIDClient, didUpdateActivity status: ActivityStatus)
+    func usbClient(_ client: USBHIDClient, didReadLayerName layer: LayerName)
 }
 
-/// KBP over USB HID (protocol/README.md §16): the AA1–AA3 and AA5 payloads on a vendor-defined HID
-/// interface, one report ID per characteristic. Feature reports are READs, input reports NOTIFYs.
-/// A vendor-defined interface needs no Input Monitoring permission.
+/// KBP over USB HID (protocol/README.md §16–17): the AA1–AA3, AA5 and AA6 payloads on a
+/// vendor-defined HID interface, one report ID per characteristic. Feature reports are READs (and
+/// AA6's index a WRITE), input reports NOTIFYs. A vendor-defined interface needs no Input Monitoring
+/// permission.
 public final class USBHIDClient {
     public static let usagePage = 0xFFAA
     public static let usage = 0x44
@@ -26,6 +28,7 @@ public final class USBHIDClient {
         case connectivity = 2  // AA2
         case battery = 3  // AA3
         case activity = 4  // AA5
+        case layerName = 5  // AA6, feature only
     }
 
     /// Report ID plus 15 bytes: the payload's length, the payload, then zeros.
@@ -123,6 +126,19 @@ public final class USBHIDClient {
         if let battery { handle(.battery, payload: battery) }
         if let status { handle(.status, payload: status) }
         if let activity { handle(.activity, payload: activity) }
+        readLayerNames(count: activity.flatMap(ActivityStatus.parse(from:))?.layerCount ?? 0)
+    }
+
+    /// KBP 1.4: every layer's name, by selecting each index and reading it back. Firmware without
+    /// AA6 refuses the selection, which ends it.
+    private func readLayerNames(count: UInt8) {
+        for index in 0..<count {
+            guard writeFeature(.layerName, payload: [index]),
+                let payload = readFeature(.layerName),
+                let layer = LayerName.parse(from: payload), layer.index == index
+            else { return }
+            delegate?.usbClient(self, didReadLayerName: layer)
+        }
     }
 
     private func detach(_ device: IOHIDDevice) {
@@ -143,6 +159,18 @@ public final class USBHIDClient {
         )
         guard result == kIOReturnSuccess else { return nil }
         return USBHIDClient.payload(fromReport: Data(buffer.prefix(length)), reportID: report.rawValue)
+    }
+
+    /// Sends `payload` as a feature report: the report ID, the length, the payload, then zeros.
+    private func writeFeature(_ report: Report, payload: [UInt8]) -> Bool {
+        guard let device, payload.count < USBHIDClient.reportLength - 1 else { return false }
+        var buffer = [UInt8](repeating: 0, count: USBHIDClient.reportLength)
+        buffer[0] = report.rawValue
+        buffer[1] = UInt8(payload.count)
+        buffer.replaceSubrange(2..<2 + payload.count, with: payload)
+        let result = IOHIDDeviceSetReport(
+            device, kIOHIDReportTypeFeature, CFIndex(report.rawValue), buffer, buffer.count)
+        return result == kIOReturnSuccess
     }
 
     // MARK: - Reports
@@ -180,6 +208,9 @@ public final class USBHIDClient {
         case .activity:
             guard let status = ActivityStatus.parse(from: payload) else { return }
             delegate?.usbClient(self, didUpdateActivity: status)
+        case .layerName:
+            guard let layer = LayerName.parse(from: payload) else { return }
+            delegate?.usbClient(self, didReadLayerName: layer)
         }
     }
 

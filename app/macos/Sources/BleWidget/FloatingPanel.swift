@@ -1399,6 +1399,12 @@ final class FloatingPanel: NSPanel {
         renderScreen()
     }
 
+    /// KBP 1.4 Layer Name: for screens that show layers other than the active one.
+    func update(layerName layer: LayerName) {
+        keyboardState.apply(layer)
+        renderScreen()
+    }
+
     func update(_ status: KeyboardStatus) {
         cachedStatus = status
         keyboardState.apply(status)

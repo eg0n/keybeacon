@@ -35,6 +35,9 @@ public protocol BLEClientDelegate: AnyObject {
     func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?)
     /// KBP 1.3 Activity snapshot (WPM, layer count); only when the keyboard exposes `AA440AA5-…`.
     func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus)
+    /// KBP 1.4 Layer Name, one per layer after connecting; only when the keyboard exposes
+    /// `AA440AA6-…`.
+    func bleClient(_ client: BLEClient, didReadLayerName layer: LayerName)
 }
 
 extension BLEClientDelegate {
@@ -46,6 +49,7 @@ extension BLEClientDelegate {
     public func bleClient(_ client: BLEClient, didDetermineKBPMinor minor: KBPMinor) {}
     public func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?) {}
     public func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus) {}
+    public func bleClient(_ client: BLEClient, didReadLayerName layer: LayerName) {}
 }
 
 /// Declared MINOR of the currently connected keyboard, derived from GATT
@@ -75,6 +79,13 @@ public final class BLEClient: NSObject {
     public static let activityCharacteristicUUID = CBUUID(
         string: "AA440AA5-F5ED-4C48-84A1-8062D20D3D55"
     )
+    public static let layerNameCharacteristicUUID = CBUUID(
+        string: "AA440AA6-F5ED-4C48-84A1-8062D20D3D55"
+    )
+    private static let characteristicUUIDs = [
+        characteristicUUID, connectivityCharacteristicUUID, batteryCharacteristicUUID,
+        linkSlotCharacteristicUUID, activityCharacteristicUUID, layerNameCharacteristicUUID,
+    ]
     private static let hidServiceUUID = CBUUID(string: "1812")
 
     public weak var delegate: BLEClientDelegate?
@@ -88,6 +99,10 @@ public final class BLEClient: NSObject {
     private var connectivityCharacteristic: CBCharacteristic?
     private var batteryCharacteristic: CBCharacteristic?
     private var linkSlotCharacteristic: CBCharacteristic?
+    private var layerNameCharacteristic: CBCharacteristic?
+    /// Layer indices still to read from AA6, in order; the first is in flight.
+    private var pendingLayerNames: [UInt8] = []
+    private var layerNamesRequested = false
     private var activeKeyboard: CompatibleKeyboard?
 
     // Cache of the current CapabilityMatrix for the active keyboard (parsed
@@ -232,14 +247,9 @@ public final class BLEClient: NSObject {
     private func activate(_ p: CBPeripheral) {
         p.delegate = self
         if let service = p.services?.first(where: { $0.uuid == Self.serviceUUID }) {
-            // Discover ALL three characteristics; 1.1 ones MAY be absent.
+            // Discover every characteristic; all but AA1 MAY be absent.
             p.discoverCharacteristics(
-                [
-                    Self.characteristicUUID,
-                    Self.connectivityCharacteristicUUID,
-                    Self.batteryCharacteristicUUID,
-                    Self.linkSlotCharacteristicUUID,
-                ],
+                Self.characteristicUUIDs,
                 for: service
             )
         } else {
@@ -305,6 +315,9 @@ public final class BLEClient: NSObject {
         connectivityCharacteristic = nil
         batteryCharacteristic = nil
         linkSlotCharacteristic = nil
+        layerNameCharacteristic = nil
+        pendingLayerNames = []
+        layerNamesRequested = false
         cachedCapability = nil
         latestConnectivity = nil
         linkSlotCache.reset()
@@ -332,6 +345,9 @@ public final class BLEClient: NSObject {
         connectivityCharacteristic = nil
         batteryCharacteristic = nil
         linkSlotCharacteristic = nil
+        layerNameCharacteristic = nil
+        pendingLayerNames = []
+        layerNamesRequested = false
         cachedCapability = nil
         latestConnectivity = nil
         linkSlotCache.reset()
@@ -638,12 +654,7 @@ extension BLEClient: CBPeripheralDelegate {
             return
         }
         peripheral.discoverCharacteristics(
-            [
-                Self.characteristicUUID,
-                Self.connectivityCharacteristicUUID,
-                Self.batteryCharacteristicUUID,
-                Self.linkSlotCharacteristicUUID,
-            ],
+            Self.characteristicUUIDs,
             for: service
         )
     }
@@ -660,6 +671,9 @@ extension BLEClient: CBPeripheralDelegate {
         let battChar = chars.first { $0.uuid == Self.batteryCharacteristicUUID }
         let linkChar = chars.first { $0.uuid == Self.linkSlotCharacteristicUUID }
         let activityChar = chars.first { $0.uuid == Self.activityCharacteristicUUID }
+        layerNameCharacteristic = chars.first { $0.uuid == Self.layerNameCharacteristicUUID }
+        layerNamesRequested = false
+        pendingLayerNames = []
 
         // The 1.0 characteristic is REQUIRED; without it this is not a
         // conformant keyboard.
@@ -761,8 +775,44 @@ extension BLEClient: CBPeripheralDelegate {
         case Self.activityCharacteristicUUID:
             guard let status = ActivityStatus.parse(from: data) else { return }
             delegate?.bleClient(self, didUpdateActivity: status)
+            requestLayerNames(count: status.layerCount)
+        case Self.layerNameCharacteristicUUID:
+            if let layer = LayerName.parse(from: data), layer.index == pendingLayerNames.first {
+                delegate?.bleClient(self, didReadLayerName: layer)
+            }
+            pendingLayerNames.removeFirst(min(1, pendingLayerNames.count))
+            requestNextLayerName()
         default:
             break
         }
+    }
+
+    /// AA6 takes the index as a write, then answers a read; the next index follows the reply.
+    public func peripheral(
+        _ peripheral: CBPeripheral,
+        didWriteValueFor characteristic: CBCharacteristic,
+        error: Error?
+    ) {
+        guard characteristic.uuid == Self.layerNameCharacteristicUUID else { return }
+        guard error == nil else {
+            pendingLayerNames = []
+            return
+        }
+        peripheral.readValue(for: characteristic)
+    }
+
+    /// KBP 1.4: read every layer's name once per connection, when the layer count is known.
+    private func requestLayerNames(count: UInt8) {
+        guard !layerNamesRequested, layerNameCharacteristic != nil, count > 0 else { return }
+        layerNamesRequested = true
+        pendingLayerNames = Array(0..<count)
+        requestNextLayerName()
+    }
+
+    private func requestNextLayerName() {
+        guard let peripheral, let characteristic = layerNameCharacteristic,
+            let index = pendingLayerNames.first
+        else { return }
+        peripheral.writeValue(Data([index]), for: characteristic, type: .withResponse)
     }
 }

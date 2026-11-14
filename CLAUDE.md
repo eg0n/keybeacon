@@ -1,9 +1,9 @@
 # KeyBeacon (eg0n fork)
 
 A keyboard reports its live state (layer, mods, links, battery, WPM, …) to a desktop app over
-BLE or USB. This fork adds KBP over USB HID, dongle topology, the Activity payload (KBP 1.3) and
-pluggable status screens to the macOS app. Firmware side: `eg0n/zmk-keybeacon`, branch
-`feat/dongle-usb`.
+BLE or USB. This fork adds KBP over USB HID, dongle topology, the Activity payload (KBP 1.3), layer
+name lookups (KBP 1.4) and pluggable status screens to the macOS app. Firmware side:
+`eg0n/zmk-keybeacon`, branch `feat/dongle-usb`.
 
 ## Layout
 
@@ -24,7 +24,8 @@ Data flows one way:
 1. `BLEClient` (CoreBluetooth) and `USBHIDClient` (IOKit HID, usage page `0xFFAA`) read the KBP
    payloads. USB takes precedence while attached (`AppDelegate`).
 2. Decoders in `BleWidgetCore` turn payloads into values: `KeyboardStatus` (AA1),
-   `ConnectivityStatus` (AA2), `BatteryStatus` (AA3), `LinkSlot` (AA4), `ActivityStatus` (AA5).
+   `ConnectivityStatus` (AA2), `BatteryStatus` (AA3), `LinkSlot` (AA4), `ActivityStatus` (AA5),
+   `LayerName` (AA6, looked up per layer after connecting).
 3. `FloatingPanel` shows them in a display mode: the built-in full card or compact strip, or a
    screen. For screens it folds every update into one `KeyboardState` (`KeyboardStateStore`).
 
