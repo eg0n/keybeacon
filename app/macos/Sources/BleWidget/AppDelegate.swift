@@ -96,58 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
             NSMenuItem(title: L10n.text("Menu_Reconnect"), action: #selector(reconnect), keyEquivalent: "r")
         )
 
-        // Panel visibility toggle (persisted). Checkmark reflects current state.
-        let showPanelItem = NSMenuItem(
-            title: L10n.text("Menu_ShowPanel"),
-            action: #selector(togglePanelVisible), keyEquivalent: ""
-        )
-        showPanelItem.target = self
-        showPanelItem.state = AppSettings().panelVisible ? .on : .off
-        menu.addItem(showPanelItem)
-
-        menu.addItem(
-            NSMenuItem(
-                title: L10n.text("Menu_Lock"),
-                action: #selector(toggleLock), keyEquivalent: "l"
-            )
-        )
-
-        let onDesktopItem = NSMenuItem(
-            title: L10n.text("Menu_OnDesktop"),
-            action: #selector(toggleOnDesktop), keyEquivalent: ""
-        )
-        onDesktopItem.state = panel.isOnDesktop ? .on : .off
-        menu.addItem(onDesktopItem)
-
-        // "Pin to corner" submenu — anchors the panel to a visible-frame
-        // corner of its current screen so it never drifts when the user
-        // switches active window to another display.
-        let pinChooser = NSMenuItem(title: L10n.text("Menu_PinCorner"), action: nil, keyEquivalent: "")
-        let pinSubmenu = NSMenu()
-        let currentPin = panel.pinnedCorner
-
-        let offItem = NSMenuItem(
-            title: L10n.text("Menu_PinOff"),
-            action: #selector(setPinOff), keyEquivalent: ""
-        )
-        offItem.target = self
-        offItem.state = (currentPin == nil) ? .on : .off
-        pinSubmenu.addItem(offItem)
-        pinSubmenu.addItem(.separator())
-
-        for corner in PinnedCorner.allCases {
-            let item = NSMenuItem(
-                title: corner.displayName,
-                action: #selector(setPinCorner(_:)), keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = corner.rawValue
-            item.state = (currentPin == corner) ? .on : .off
-            pinSubmenu.addItem(item)
-        }
-        pinChooser.submenu = pinSubmenu
-        menu.addItem(pinChooser)
-
+        menu.addItem(.separator())
         // "Display mode" submenu: the full card, the compact strip, then every registered screen.
         let modeChooser = NSMenuItem(title: L10n.text("Menu_DisplayMode"), action: nil, keyEquivalent: "")
         let modeSubmenu = NSMenu()
@@ -165,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
         }
         modeChooser.submenu = modeSubmenu
         menu.addItem(modeChooser)
-
+        menu.addItem(panelMenuItem())
         // "Language" submenu — 跟随系统 / 中文 / English (FR-005 / FR-012).
         let languageChooser = NSMenuItem(title: L10n.text("Menu_Language"), action: nil, keyEquivalent: "")
         let languageSubmenu = NSMenu()
@@ -223,12 +172,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
         usbClient.start()
     }
 
-    @objc private func toggleLock() {
-        panel.isLocked.toggle()
+    /// The panel's settings, in sections: whether it shows, which layer it sits in (above windows
+    /// or on the desktop), where (anywhere, or pinned to a corner), and whether it takes clicks.
+    private func panelMenuItem() -> NSMenuItem {
+        let submenu = NSMenu()
+        func header(_ key: String) -> NSMenuItem {
+            if #available(macOS 14.0, *) {
+                return .sectionHeader(title: L10n.text(key))
+            }
+            let item = NSMenuItem(title: L10n.text(key), action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            return item
+        }
+        func choice(_ key: String, _ action: Selector, _ value: Any?, on: Bool) -> NSMenuItem {
+            let item = NSMenuItem(title: L10n.text(key), action: action, keyEquivalent: "")
+            item.target = self
+            item.representedObject = value
+            item.state = on ? .on : .off
+            return item
+        }
+
+        submenu.addItem(choice("Menu_ShowPanel", #selector(togglePanelVisible), nil, on: AppSettings().panelVisible))
+
+        submenu.addItem(.separator())
+        submenu.addItem(header("Menu_Layer"))
+        submenu.addItem(choice("Menu_AboveWindows", #selector(setOnDesktop(_:)), false, on: !panel.isOnDesktop))
+        submenu.addItem(choice("Menu_OnDesktop", #selector(setOnDesktop(_:)), true, on: panel.isOnDesktop))
+
+        // A pinned panel stays in its corner of whichever screen it is on.
+        submenu.addItem(.separator())
+        submenu.addItem(header("Menu_Position"))
+        let pinned = panel.pinnedCorner
+        submenu.addItem(choice("Menu_PinOff", #selector(setPinOff), nil, on: pinned == nil))
+        for corner in PinnedCorner.allCases {
+            let item = choice("Menu_PinOff", #selector(setPinCorner(_:)), corner.rawValue, on: pinned == corner)
+            item.title = corner.displayName
+            submenu.addItem(item)
+        }
+
+        submenu.addItem(.separator())
+        let lock = choice("Menu_Lock", #selector(toggleLock), nil, on: panel.isLocked)
+        lock.keyEquivalent = "l"
+        submenu.addItem(lock)
+
+        let item = NSMenuItem(title: L10n.text("Menu_Panel"), action: nil, keyEquivalent: "")
+        item.submenu = submenu
+        return item
     }
 
-    @objc private func toggleOnDesktop() {
-        panel.isOnDesktop.toggle()
+    @objc private func toggleLock() {
+        panel.isLocked.toggle()
+        buildMenu()
+    }
+
+    @objc private func setOnDesktop(_ sender: NSMenuItem) {
+        guard let onDesktop = sender.representedObject as? Bool else { return }
+        panel.isOnDesktop = onDesktop
         buildMenu()
     }
 

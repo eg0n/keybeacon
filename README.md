@@ -109,8 +109,10 @@ New screens are one file and a registry entry; [CLAUDE.md](CLAUDE.md) explains h
 
 ### Menu bar
 
-Reconnect, toggle the floating panel, lock / click-through, put it on the desktop behind windows
-(this fork), pin to a corner, switch display mode (including status screens), or change language:
+Reconnect, switch display mode (including status screens), or change language. The **Panel**
+submenu (this fork) gathers the panel's settings: show or hide it; its layer, above windows or on
+the desktop behind them; its position, anywhere or pinned to a corner; and a lock that lets clicks
+pass through it:
 
 ![Menu bar menu](photos/menu.png)
 
@@ -439,7 +441,7 @@ KBP 数据重绘:carrefinho 的 **Operator**、**Classic**、**Radii**、**Field
 
 ### 菜单栏
 
-重新连接、显示/隐藏悬浮面板、锁定 / 点击穿透、置于桌面(本分支)、吸附到屏角、切换显示模式(含状态屏)、切换语言:
+重新连接、切换显示模式(含状态屏)、切换语言。**浮窗**子菜单(本分支)集中了浮窗设置:显示或隐藏;层级,浮于窗口之上或置于桌面(窗口之下);位置,任意或钉到屏角;以及让点击穿透的锁定:
 
 ![菜单栏](photos/menu.png)
 
