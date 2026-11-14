@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import XCTest
+
 @testable import BleWidgetCore
 
 final class StalenessTrackerTests: XCTestCase {
@@ -105,7 +106,8 @@ final class StalenessTrackerTests: XCTestCase {
         t.recordNotify(fieldKey: "f", at: 1000.0)
         // Inject an older timestamp (should be ignored, newer is kept).
         t.recordNotify(fieldKey: "f", at: 500.0)
-        XCTAssertFalse(t.isStale(fieldKey: "f", now: 1001.0),
+        XCTAssertFalse(
+            t.isStale(fieldKey: "f", now: 1001.0),
             "injecting an older timestamp must not make the field stale")
     }
 

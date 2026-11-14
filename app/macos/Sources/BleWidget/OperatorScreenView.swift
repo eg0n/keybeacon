@@ -4,11 +4,10 @@
 import AppKit
 import BleWidgetCore
 
-/// The Prospector dongle's "Operator" status screen (carrefinho/prospector-zmk-module,
-/// layouts/operator), redrawn at its 280×240 resolution from KBP data: the modifier row, a
-/// 26-bar WPM meter with the WPM and layer name cut into it, one segment per layer, a battery
-/// ring per half, and the output and profile slots. Positions, colours and the WPM easing are
-/// the firmware's; its fonts (Foundry Gridnik, FRAC, DINish) are stood in for by SF.
+/// The Prospector dongle's Operator screen (carrefinho/prospector-zmk-module, layouts/operator) at
+/// its 280×240 size, from KBP data: modifiers, a 26-bar WPM meter, layer segments, a battery ring
+/// per half, output and profiles. Positions, colours and WPM easing are the firmware's; SF stands
+/// in for its Gridnik, FRAC and DINish fonts.
 final class OperatorScreenView: NSView {
     static let screenSize = NSSize(width: 280, height: 240)
 
@@ -19,16 +18,16 @@ final class OperatorScreenView: NSView {
     private var connected = false
     private var layerIndex = 0
     private var layerName = ""
-    private var mods: [Bool] = [false, false, false, false] // CMD OPT CTRL SHFT
+    private var mods: [Bool] = [false, false, false, false]  // CMD OPT CTRL SHFT
     private var layerCount = 0
     private var capsWord = false
     private var capsLock = false
     private var halves: [(online: Bool, level: Int?)] = [(false, nil), (false, nil)]
     private var outputIsUSB: Bool?
-    private var profileIndex = 0 // 1-based; 0 = unknown
+    private var profileIndex = 0  // 1-based; 0 = unknown
     private var profileCount = 0
     private var activeProfileOpen = false
-    private var openProfiles: UInt8? // bit n = profile n+1 has no bonded host
+    private var openProfiles: UInt8?  // bit n = profile n+1 has no bonded host
 
     // WPM meter, as in wpm_meter.c: ease towards the target every 33 ms, a peak that holds for
     // 90 frames, then drops a bar every 18.
@@ -247,14 +246,18 @@ final class OperatorScreenView: NSView {
         let bars = activeBars
         for i in 0..<Self.barCount {
             (i < bars ? Palette.wpmBarActive : Palette.wpmBarInactive).setFill()
-            NSBezierPath(roundedRect: NSRect(x: startX + CGFloat(i) * 10, y: meter.minY, width: 8, height: meter.height),
-                         xRadius: 1, yRadius: 1).fill()
+            NSBezierPath(
+                roundedRect: NSRect(x: startX + CGFloat(i) * 10, y: meter.minY, width: 8, height: meter.height),
+                xRadius: 1, yRadius: 1
+            ).fill()
         }
         if peak > bars, peak > 0 {
             let slot = min(peak > bars + 1 ? peak - 1 : bars, Self.barCount - 1)
             Palette.wpmPeak.setFill()
-            NSBezierPath(roundedRect: NSRect(x: startX + CGFloat(slot) * 10 + 2, y: meter.minY, width: 4, height: meter.height),
-                         xRadius: 1, yRadius: 1).fill()
+            NSBezierPath(
+                roundedRect: NSRect(x: startX + CGFloat(slot) * 10 + 2, y: meter.minY, width: 4, height: meter.height),
+                xRadius: 1, yRadius: 1
+            ).fill()
         }
 
         // The WPM, padded 6×4 on black, aligned top-left with a (-7, -9) offset.
@@ -269,8 +272,9 @@ final class OperatorScreenView: NSView {
         guard !layerName.isEmpty else { return }
         let name = text(layerName, Fonts.dinishExpandedLight, Palette.layerText)
         let nameSize = name.size()
-        let nameBox = NSRect(x: meter.maxX + 9 - nameSize.width - 16, y: meter.maxY + 7 - nameSize.height - 10,
-                             width: nameSize.width + 16, height: nameSize.height + 10)
+        let nameBox = NSRect(
+            x: meter.maxX + 9 - nameSize.width - 16, y: meter.maxY + 7 - nameSize.height - 10,
+            width: nameSize.width + 16, height: nameSize.height + 10)
         NSColor.black.setFill()
         nameBox.fill()
         name.draw(at: NSPoint(x: nameBox.minX + 8, y: nameBox.minY + 7))
@@ -283,8 +287,10 @@ final class OperatorScreenView: NSView {
         let width = (260 - CGFloat(count - 1) * 3) / CGFloat(count)
         for i in 0..<count {
             (connected && i == layerIndex ? Palette.layerDotActive : Palette.layerDotInactive).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 10 + CGFloat(i) * (width + 3), y: 142, width: width, height: 6),
-                         xRadius: 2, yRadius: 2).fill()
+            NSBezierPath(
+                roundedRect: NSRect(x: 10 + CGFloat(i) * (width + 3), y: 142, width: width, height: 6),
+                xRadius: 2, yRadius: 2
+            ).fill()
         }
     }
 
@@ -304,8 +310,9 @@ final class OperatorScreenView: NSView {
             // LVGL angles run clockwise from 3 o'clock, as do these in a flipped view.
             strokeArc(center: center, radius: radius, from: 270, sweep: 270, width: width, color: ring)
             if half.online, level > 0 {
-                strokeArc(center: center, radius: radius, from: 270, sweep: 270 * CGFloat(min(level, 100)) / 100,
-                          width: width, color: fill)
+                strokeArc(
+                    center: center, radius: radius, from: 270, sweep: 270 * CGFloat(min(level, 100)) / 100,
+                    width: width, color: fill)
             }
 
             let box = NSRect(x: origin.x, y: origin.y, width: 25, height: 25)
@@ -317,16 +324,19 @@ final class OperatorScreenView: NSView {
         }
     }
 
-    private func strokeArc(center: NSPoint, radius: CGFloat, from start: CGFloat, sweep: CGFloat,
-                           width: CGFloat, color: NSColor) {
+    private func strokeArc(
+        center: NSPoint, radius: CGFloat, from start: CGFloat, sweep: CGFloat,
+        width: CGFloat, color: NSColor
+    ) {
         guard sweep > 0, let context = NSGraphicsContext.current?.cgContext else { return }
         let toRadians = CGFloat.pi / 180
         context.saveGState()
         context.setStrokeColor(color.cgColor)
         context.setLineWidth(width)
         context.setLineCap(.round)
-        context.addArc(center: center, radius: radius, startAngle: start * toRadians,
-                       endAngle: (start + sweep) * toRadians, clockwise: false)
+        context.addArc(
+            center: center, radius: radius, startAngle: start * toRadians,
+            endAngle: (start + sweep) * toRadians, clockwise: false)
         context.strokePath()
         context.restoreGState()
     }
@@ -335,10 +345,12 @@ final class OperatorScreenView: NSView {
     /// over one 29-high slot per BLE profile, the active profile's lit. A profile with no host
     /// bonded is an outline instead, in the active colour while it waits to pair.
     private func drawOutput() {
-        drawToggle("USB", rect: NSRect(x: 148, y: 170, width: 56, height: 29), active: outputIsUSB == true,
-                   on: Palette.usbActive, off: Palette.usbInactive)
-        drawToggle("BLE", rect: NSRect(x: 206, y: 170, width: 56, height: 29), active: outputIsUSB == false,
-                   on: Palette.bleActive, off: Palette.bleInactive)
+        drawToggle(
+            "USB", rect: NSRect(x: 148, y: 170, width: 56, height: 29), active: outputIsUSB == true,
+            on: Palette.usbActive, off: Palette.usbInactive)
+        drawToggle(
+            "BLE", rect: NSRect(x: 206, y: 170, width: 56, height: 29), active: outputIsUSB == false,
+            on: Palette.bleActive, off: Palette.bleInactive)
 
         guard profileCount > 0 else { return }
         let width = (116 - CGFloat(profileCount - 1) * 2) / CGFloat(profileCount)
@@ -386,9 +398,10 @@ final class OperatorScreenView: NSView {
     }
 }
 
-private extension NSColor {
-    convenience init(hex: UInt32) {
-        self.init(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
-                  blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+extension NSColor {
+    fileprivate convenience init(hex: UInt32) {
+        self.init(
+            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
     }
 }

@@ -193,10 +193,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
         let symbol: String
         let fallback: String
         switch state {
-        case .connected: symbol = "keyboard"; fallback = "⌨︎"
-        case .connecting: symbol = "keyboard.badge.ellipsis"; fallback = "⌨…"
-        case .notConnected: symbol = "keyboard.slash"; fallback = "⌨✕"
-        case .unavailable: symbol = "bolt.slash"; fallback = "⚡︎✕"
+        case .connected:
+            symbol = "keyboard"
+            fallback = "⌨︎"
+        case .connecting:
+            symbol = "keyboard.badge.ellipsis"
+            fallback = "⌨…"
+        case .notConnected:
+            symbol = "keyboard.slash"
+            fallback = "⌨✕"
+        case .unavailable:
+            symbol = "bolt.slash"
+            fallback = "⚡︎✕"
         }
         guard let button = statusItem.button else { return }
         if let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
@@ -241,7 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
 
     @objc private func setPinCorner(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String,
-              let corner = PinnedCorner(rawValue: raw)
+            let corner = PinnedCorner(rawValue: raw)
         else { return }
         panel.pinnedCorner = corner
         buildMenu()
@@ -249,7 +257,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
 
     @objc private func setDisplayMode(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String,
-              let mode = DisplayMode(rawValue: raw)
+            let mode = DisplayMode(rawValue: raw)
         else { return }
         panel.displayMode = mode
         buildMenu()
@@ -259,7 +267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     /// immediately — no restart (FR-003 / FR-011).
     @objc private func setLanguage(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String,
-              let pref = LanguagePreference(rawValue: raw)
+            let pref = LanguagePreference(rawValue: raw)
         else { return }
         let settings = AppSettings()
         settings.languagePreference = pref

@@ -9,16 +9,16 @@ import Foundation
 /// `specs/001-connectivity-power/contracts/protocol-kbp11.md` §3.
 ///
 /// `parse(from:)` returns `nil` when the payload is shorter than 7 bytes
-/// (invariant C-C1); payloads longer than 7 bytes are consumed up to byte 6
-/// and the tail is ignored (invariant C-C2 for MINOR forward-compatibility).
+/// (invariant C-C1). KBP 1.3 adds byte 7, the open-profile mask; any later
+/// bytes are ignored (invariant C-C2 for MINOR forward-compatibility).
 public struct ConnectivityStatus: Equatable {
 
     /// `host_state` (byte 1): connected flag + last-disconnect reason.
     public struct Link: Equatable {
         public enum DisconnectReason: UInt8, Equatable {
-            case unknown  = 0
+            case unknown = 0
             case explicit = 1
-            case timeout  = 2
+            case timeout = 2
             case reserved = 3
         }
 
@@ -58,8 +58,8 @@ public struct ConnectivityStatus: Equatable {
         }
 
         public init(fromBytes b2: UInt8, _ b3: UInt8) {
-            self.index    = b2 & 0x7F
-            self.isOpen   = (b2 & 0x80) != 0
+            self.index = b2 & 0x7F
+            self.isOpen = (b2 & 0x80) != 0
             self.maxSlots = b3
         }
     }
@@ -77,9 +77,9 @@ public struct ConnectivityStatus: Equatable {
         }
 
         public init(fromByte byte: UInt8) {
-            self.leftOnline        = (byte & 0x01) != 0
-            self.rightOnline       = (byte & 0x02) != 0
-            self.reservedBits2To7  = (byte >> 2) & 0x3F
+            self.leftOnline = (byte & 0x01) != 0
+            self.rightOnline = (byte & 0x02) != 0
+            self.reservedBits2To7 = (byte >> 2) & 0x3F
         }
     }
 
@@ -122,9 +122,9 @@ public struct ConnectivityStatus: Equatable {
         }
 
         public init(fromByte byte: UInt8) {
-            self.leftCharging        = (byte & 0x01) != 0
-            self.rightCharging       = (byte & 0x02) != 0
-            self.reservedBits2To7    = (byte >> 2) & 0x3F
+            self.leftCharging = (byte & 0x01) != 0
+            self.rightCharging = (byte & 0x02) != 0
+            self.reservedBits2To7 = (byte >> 2) & 0x3F
         }
     }
 

@@ -4,12 +4,9 @@
 import AppKit
 import BleWidgetCore
 
-// UI toggle: when `false`, the "last-updated HH:mm:ss" captions in both
-// the FloatingPanel stale labels and the BatteryBarView frozen percent
-// readout are suppressed. All staleness logic (alpha dim, frozen battery
-// fill, isStale checks, DiagnosticsLogger entries) still runs.
-// Flip to `true` to restore the on-screen timestamps for debugging.
-fileprivate let showStaleTimestamps = false
+// Shows "last-updated HH:mm:ss" next to stale values; off, staleness still dims them and is logged.
+// Turn on for debugging.
+private let showStaleTimestamps = false
 
 final class FloatingPanel: NSPanel {
     private let settings = AppSettings()
@@ -49,14 +46,8 @@ final class FloatingPanel: NSPanel {
     private let hostStaleLabel = NSTextField(labelWithString: "")
     private let hostRow = NSStackView()
 
-    // KBP 1.2 per-link "this computer" status row (spec 005). Deliberately
-    // distinct from the global host-connection row above: it answers the
-    // higher-level "in use *here* vs *elsewhere*" question that only a
-    // per-connection AA4 READ can honestly resolve. Hidden unless the active
-    // keyboard exposes AA4 (old firmware → no new UI, CF-8).
-    // The status indicator is a single coloured glyph (●◐◆○✕) that carries
-    // BOTH colour and shape — not a plain dot plus a symbol (that read as two
-    // dots). See host-status-visual.md V-1.
+    // KBP 1.2 "in use here vs elsewhere" row, from the per-connection AA4 read; hidden without AA4.
+    // One glyph (●◐◆○✕) carries both colour and shape, so it never reads as two dots.
     private let localHostSymbol = NSTextField(labelWithString: "")
     private let localHostLabel = NSTextField(labelWithString: "")
     private let localHostRow = NSStackView()
@@ -95,14 +86,10 @@ final class FloatingPanel: NSPanel {
     private let endpointRow = NSStackView()
 
     // MARK: - Compact (single-row) mode subviews
-    //
-    // When `displayMode == .compact`, `compactRow` replaces both `topRow`
-    // and `connectivityCard`, packing everything into one horizontal strip:
-    //   "L1 ⇧⌃⌥⌘ │ ● P1 │ ●L85 ●R72 │ USB"
-    // Each sub-segment hides itself when its capability bit is 0 or when the
-    // keyboard is KBP 1.0 (no AA2). The segments share state with the full
-    // mode via the same cached* vars + staleness tracker; both layouts are
-    // kept up to date on every render so switching modes is instant.
+
+    // Compact mode packs everything into one strip, "L1 ⇧⌃⌥⌘ │ ● P1 │ ●L85 ●R72 │ USB", each segment
+    // hidden when its capability is missing. Both layouts render from the same cached state on
+    // every update, so switching modes is instant.
 
     private let compactRow = NSStackView()
     private let compactLayerLabel = NSTextField(labelWithString: "")
@@ -134,11 +121,7 @@ final class FloatingPanel: NSPanel {
     private var cachedConnectivity: ConnectivityStatus?
     private var cachedStatus: KeyboardStatus?
 
-    /// Outer vertical stack that holds `topRow`, `connectivityCard` and
-    /// `compactRow` (whichever are currently visible per `displayMode`).
-    /// Held as a property so `applyDisplayMode()` can retune its edgeInsets
-    /// per layout (full: top=0 to anchor the already-tall topRow; compact:
-    /// symmetric top+bottom so the single line is vertically centred).
+    /// The full layout's rows, kept so `applyDisplayMode()` can retune its insets per layout.
     private let vstack = NSStackView()
 
     /// Remembered KBP 1.1 capability — set by `setConnectivityCardVisible`.
@@ -170,11 +153,11 @@ final class FloatingPanel: NSPanel {
     /// (contract host-status-visual.md V-1); this only translates it.
     private static func nsColor(_ c: HostStatusColor) -> NSColor {
         switch c {
-        case .green:  return .systemGreen
+        case .green: return .systemGreen
         case .orange: return .systemOrange
-        case .blue:   return .systemBlue
-        case .gray:   return .systemGray
-        case .red:    return .systemRed
+        case .blue: return .systemBlue
+        case .gray: return .systemGray
+        case .red: return .systemRed
         }
     }
 
@@ -196,7 +179,8 @@ final class FloatingPanel: NSPanel {
     }
 
     private func applyWindowLevel() {
-        level = settings.onDesktop
+        level =
+            settings.onDesktop
             ? NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)))
             : .floating
     }
@@ -274,11 +258,8 @@ final class FloatingPanel: NSPanel {
         // Row 2 — Connectivity & Power card (hidden by default).
         buildConnectivityCard()
 
-        // Alternative single-row (compact) layout. Added separately below
-        // (not as a vstack arrangedSubview) so it can be vertically centred
-        // inside `content` independently of the full-mode vstack. (NSStackView
-        // with distribution .gravityAreas pins a lone arranged subview to
-        // the top edge even with symmetric edgeInsets.)
+        // The compact row sits outside the vstack so it can be centred vertically: a stack view pins
+        // a lone arranged subview to its top edge whatever its insets.
         buildCompactRow()
 
         // Compose full-mode rows into a vertical stack. compactRow is NOT
@@ -302,11 +283,8 @@ final class FloatingPanel: NSPanel {
             vstack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             connectivityCard.leadingAnchor.constraint(equalTo: vstack.leadingAnchor, constant: 10),
             connectivityCard.trailingAnchor.constraint(equalTo: vstack.trailingAnchor, constant: -10),
-            // compactRow: horizontally centred inside content, with min 10 pt
-            // breathing room on each side. The strict leading-equality we had
-            // before pinned the row flush-left so any extra width that
-            // reflowFrameToContent reserved (rowWidth + 24 vs rowWidth + 20)
-            // leaked onto the right side, which read as "data偏左".
+            // Centred with at least 10 pt each side; pinned left, the spare width the reflow reserves
+            // would all land on the right.
             compactRow.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 10),
             compactRow.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -10),
             compactRow.centerXAnchor.constraint(equalTo: content.centerXAnchor),
@@ -651,7 +629,8 @@ final class FloatingPanel: NSPanel {
         }
         operatorScreen.isHidden = mode != .prospector
         // The screen draws its own opaque black face.
-        contentView?.layer?.backgroundColor = mode == .prospector
+        contentView?.layer?.backgroundColor =
+            mode == .prospector
             ? NSColor.clear.cgColor : NSColor.black.withAlphaComponent(0.55).cgColor
         // Re-render so the newly-visible layout picks up current data.
         renderConnectivity()
@@ -947,8 +926,8 @@ final class FloatingPanel: NSPanel {
             let txt: String
             switch s.output {
             case .unknown: txt = "—"
-            case .usb:     txt = "USB"
-            case .ble:     txt = "BLE"
+            case .usb: txt = "USB"
+            case .ble: txt = "BLE"
             case .reserved(let code): txt = String(format: "0x%02X", code)
             }
             compactEndpointLabel.stringValue = txt
@@ -970,12 +949,8 @@ final class FloatingPanel: NSPanel {
         }
     }
 
-    /// Thin wrapper around `StalenessTracker.isStale` that also emits a
-    /// diagnostic log entry on each live↔stale transition. Rendering uses
-    /// this instead of calling `staleness.isStale` directly so that we can
-    /// hide the on-screen "last-updated HH:mm:ss" labels while still keeping
-    /// a durable trail in `log stream --predicate 'subsystem ==
-    /// "com.keybeacon.app"'`.
+    /// `StalenessTracker.isStale`, logging each live↔stale transition so the trail survives with the
+    /// on-screen timestamps hidden.
     private func isStaleTracked(fieldKey: String, now: TimeInterval) -> Bool {
         let stale = staleness.isStale(fieldKey: fieldKey, now: now)
         if lastStaleStates[fieldKey] != stale {
@@ -984,7 +959,8 @@ final class FloatingPanel: NSPanel {
                 let reason: String
                 if let last = staleness.lastNotifyAt(fieldKey: fieldKey) {
                     let elapsed = max(0, now - last)
-                    reason = "window_elapsed last=\(Self.formatTimestamp(monotonic: last, now: now)) elapsed_s=\(String(format: "%.1f", elapsed))"
+                    let lastText = Self.formatTimestamp(monotonic: last, now: now)
+                    reason = "window_elapsed last=\(lastText) elapsed_s=\(String(format: "%.1f", elapsed))"
                 } else {
                     reason = "no_notify_yet"
                 }
@@ -1000,18 +976,21 @@ final class FloatingPanel: NSPanel {
     /// no-op (the label is kept hidden) because
     /// `showStaleTimestamps == false`; flip that flag to re-enable the
     /// on-screen timestamps without touching the render sites.
-    private func applyStaleLabel(_ label: NSTextField,
-                                 fieldKey: String,
-                                 isStale: Bool,
-                                 now: TimeInterval,
-                                 lastOverride: TimeInterval? = nil) {
+    private func applyStaleLabel(
+        _ label: NSTextField,
+        fieldKey: String,
+        isStale: Bool,
+        now: TimeInterval,
+        lastOverride: TimeInterval? = nil
+    ) {
         guard showStaleTimestamps else {
             label.isHidden = true
             label.stringValue = ""
             return
         }
         if isStale,
-           let last = lastOverride ?? staleness.lastNotifyAt(fieldKey: fieldKey) {
+            let last = lastOverride ?? staleness.lastNotifyAt(fieldKey: fieldKey)
+        {
             label.isHidden = false
             label.stringValue = L10n.format("Last_Updated", Self.formatTimestamp(monotonic: last, now: now))
         } else {
@@ -1032,7 +1011,7 @@ final class FloatingPanel: NSPanel {
         var text = connected ? L10n.text("Conn_Connected") : L10n.text("Conn_Disconnected")
         if !connected {
             switch s.link.lastDisconnectReason {
-            case .timeout:  text += L10n.text("Conn_TimeoutSuffix")
+            case .timeout: text += L10n.text("Conn_TimeoutSuffix")
             case .explicit: text += L10n.text("Conn_ExplicitSuffix")
             case .unknown, .reserved: break
             }
@@ -1108,7 +1087,8 @@ final class FloatingPanel: NSPanel {
 
     private func renderBatteryRow(status s: ConnectivityStatus, now: TimeInterval) {
         let isSplit = s.capability.isSplit
-        guard cachedBatteryStatus != nil
+        guard
+            cachedBatteryStatus != nil
                 || cachedOverallReading != nil
                 || cachedLeftReading != nil
                 || cachedRightReading != nil
@@ -1152,11 +1132,12 @@ final class FloatingPanel: NSPanel {
             let lastLeft = staleness.lastNotifyAt(fieldKey: "left_battery")
             let lastRight = staleness.lastNotifyAt(fieldKey: "right_battery")
             let latest = [lastLeft, lastRight].compactMap { $0 }.max()
-            applyStaleLabel(batteryStaleLabel,
-                            fieldKey: "left_battery",
-                            isStale: anyStale,
-                            now: now,
-                            lastOverride: latest)
+            applyStaleLabel(
+                batteryStaleLabel,
+                fieldKey: "left_battery",
+                isStale: anyStale,
+                now: now,
+                lastOverride: latest)
         } else {
             installOverallBar()
             let overallCharging = s.capability.hasLeftCharging && s.chargingFlags.leftCharging
@@ -1211,8 +1192,8 @@ final class FloatingPanel: NSPanel {
         let text: String
         switch s.output {
         case .unknown: text = L10n.text("Endpoint_Unknown")
-        case .usb:     text = L10n.text("Endpoint_Usb")
-        case .ble:     text = L10n.text("Endpoint_Ble")
+        case .usb: text = L10n.text("Endpoint_Usb")
+        case .ble: text = L10n.text("Endpoint_Ble")
         case .reserved(let code): text = L10n.format("Endpoint_Reserved", code)
         }
         endpointLabel.stringValue = text
@@ -1271,10 +1252,12 @@ final class FloatingPanel: NSPanel {
             desiredWidth = 240
         }
         let currentOrigin = frame.origin
-        let topLeft = NSPoint(x: currentOrigin.x,
-                              y: currentOrigin.y + frame.height - desiredHeight)
-        let newFrame = NSRect(x: topLeft.x, y: topLeft.y,
-                              width: desiredWidth, height: desiredHeight)
+        let topLeft = NSPoint(
+            x: currentOrigin.x,
+            y: currentOrigin.y + frame.height - desiredHeight)
+        let newFrame = NSRect(
+            x: topLeft.x, y: topLeft.y,
+            width: desiredWidth, height: desiredHeight)
         setFrame(newFrame, display: true, animate: false)
         if pinnedCorner != nil {
             applyPinnedCorner()
@@ -1283,11 +1266,8 @@ final class FloatingPanel: NSPanel {
         }
     }
 
-    /// Returns the screen that currently contains the panel's center point.
-    /// Falls back to `self.screen`, then `NSScreen.main`. This is intentionally
-    /// NOT `NSScreen.main` (which tracks the key window / active screen and
-    /// would cause the panel to jump between displays whenever the user
-    /// switches focus).
+    /// The screen holding the panel's centre, else `self.screen`, else `NSScreen.main`. Not
+    /// `NSScreen.main` first: it follows the key window, which would make the panel jump screens.
     private func currentScreen() -> NSScreen? {
         let center = NSPoint(x: frame.midX, y: frame.midY)
         if let hit = NSScreen.screens.first(where: { $0.frame.contains(center) }) {
@@ -1408,7 +1388,7 @@ final class FloatingPanel: NSPanel {
     }
 }
 
-fileprivate final class ProfileBadgeView: NSView {
+private final class ProfileBadgeView: NSView {
     private let indexLabel = NSTextField(labelWithString: "")
     private let pendingHint = NSTextField(labelWithString: "⋯")
     private var dashedLayer: CAShapeLayer?
@@ -1499,7 +1479,7 @@ fileprivate final class ProfileBadgeView: NSView {
     }
 }
 
-fileprivate final class BatteryBarView: NSView {
+private final class BatteryBarView: NSView {
     let sideLabel = NSTextField(labelWithString: "")
     private let percentLabel = NSTextField(labelWithString: "—")
     private let track = NSView()
@@ -1617,7 +1597,7 @@ fileprivate final class BatteryBarView: NSView {
         switch n {
         case ..<20: return .systemRed
         case ..<40: return .systemOrange
-        default:    return .systemGreen
+        default: return .systemGreen
         }
     }
 

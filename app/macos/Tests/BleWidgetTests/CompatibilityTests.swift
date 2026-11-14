@@ -1,8 +1,9 @@
 // Copyright (c) 2026 The TOTEM ZMK Contributors
 // SPDX-License-Identifier: MIT
 
-import XCTest
 import CoreBluetooth
+import XCTest
+
 @testable import BleWidgetCore
 
 final class CompatibilityTests: XCTestCase {

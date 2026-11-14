@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import XCTest
+
 @testable import BleWidgetCore
 
 final class USBHIDClientTests: XCTestCase {
@@ -28,7 +29,7 @@ final class USBHIDClientTests: XCTestCase {
     func testPayload_LengthBeyondReport_ReturnsNil() {
         var report = [UInt8](repeating: 0, count: 16)
         report[0] = 1
-        report[1] = 15 // only 14 payload bytes fit
+        report[1] = 15  // only 14 payload bytes fit
         XCTAssertNil(USBHIDClient.payload(fromReport: Data(report), reportID: 1))
     }
 
@@ -40,9 +41,9 @@ final class USBHIDClientTests: XCTestCase {
         var report = [UInt8](repeating: 0, count: 16)
         report[0] = 1
         report[1] = 5
-        report.replaceSubrange(2..<7, with: [0x02, 0x22, 0x53, 0x59, 0x4D]) // SYM, both Shifts
+        report.replaceSubrange(2..<7, with: [0x02, 0x22, 0x53, 0x59, 0x4D])  // SYM, both Shifts
         guard let payload = USBHIDClient.payload(fromReport: Data(report), reportID: 1),
-              let status = KeyboardStatus.parse(payload)
+            let status = KeyboardStatus.parse(payload)
         else { return XCTFail("status report must decode") }
         XCTAssertEqual(status.layerName, "SYM")
         XCTAssertTrue(status.shiftActive)
@@ -80,9 +81,11 @@ final class USBHIDClientTests: XCTestCase {
     // MARK: - Identity
 
     func testStableUUID_IsDeterministicPerKey() {
-        XCTAssertEqual(USBHIDClient.stableUUID(for: "usb:7504:24926:abc"),
-                       USBHIDClient.stableUUID(for: "usb:7504:24926:abc"))
-        XCTAssertNotEqual(USBHIDClient.stableUUID(for: "usb:7504:24926:abc"),
-                          USBHIDClient.stableUUID(for: "usb:7504:24926:abd"))
+        XCTAssertEqual(
+            USBHIDClient.stableUUID(for: "usb:7504:24926:abc"),
+            USBHIDClient.stableUUID(for: "usb:7504:24926:abc"))
+        XCTAssertNotEqual(
+            USBHIDClient.stableUUID(for: "usb:7504:24926:abc"),
+            USBHIDClient.stableUUID(for: "usb:7504:24926:abd"))
     }
 }

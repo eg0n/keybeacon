@@ -1,18 +1,12 @@
 // Copyright (c) 2026 The TOTEM ZMK Contributors
 // SPDX-License-Identifier: MIT
 
-import Foundation
 import CoreBluetooth
+import Foundation
 
-/// Declares the KeyBeacon Protocol (KBP) MAJOR versions this host supports and
-/// classifies a discovered device against them — purely, so it is unit-testable
-/// with no BLE hardware (protocol §9/§3; FR-013/FR-014, SC-007).
-///
-/// The **service UUID is the MAJOR-version signal**: a MAJOR bump uses a new
-/// service UUID that keeps the KeyBeacon UUID base. A host therefore supports a
-/// *set* of service UUIDs; anything in the KeyBeacon family but outside that set
-/// is a protocol version this app does not understand, and must be reported as
-/// such rather than mis-parsed.
+/// The KBP MAJOR versions this host supports, and a device's classification against them. The
+/// service UUID is the MAJOR signal (protocol §9): a KeyBeacon-family UUID outside the supported
+/// set is a version this app doesn't understand, reported as such rather than mis-parsed.
 public enum KBPCompatibility {
 
     public enum Classification: Equatable {

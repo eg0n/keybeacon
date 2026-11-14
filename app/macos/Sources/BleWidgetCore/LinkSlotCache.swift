@@ -3,19 +3,9 @@
 
 import Foundation
 
-/// Session-scoped cache of the last-learned KBP 1.2 Link-slot (`AA4`) for the
-/// active BLE connection (spec 005 / US2, T033).
-///
-/// `AA4` is READ-only (no NOTIFY), so the host must re-read it to notice a slot
-/// change (e.g. the keyboard was re-paired to a different profile slot, or the
-/// peer address was not yet resolved to a bond at connect time and resolved
-/// later). This value lives only for the current connection — `reset()` on
-/// disconnect guarantees a stale in-use claim never survives a re-pair (FR-006,
-/// FR-009).
-///
-/// `learnedAt` records when the current slot was last (re-)read, for diagnostics
-/// and the fallback re-read timer. Structurally identical to the Windows
-/// `LinkSlotCache` (cross-platform parity, constitution §III).
+/// The last Link-slot (`AA4`) read on the current connection, and when. AA4 has no notify, so a
+/// changed slot shows only on a re-read; `reset()` on disconnect keeps a stale "in use here" from
+/// outliving a re-pair. Matches the Windows `LinkSlotCache`.
 public struct LinkSlotCache: Equatable {
 
     /// The most recently read Link-slot, or `nil` if never read this session.
@@ -26,14 +16,8 @@ public struct LinkSlotCache: Equatable {
 
     public init() {}
 
-    /// Record a freshly-read Link-slot. A `nil` argument (empty/failed read) is
-    /// ignored — the previously-learned slot is retained, never clobbered.
-    ///
-    /// Returns `true` only for a *read-back change*: a non-nil new value whose
-    /// slot differs from a previously-known slot. The initial learn (no prior
-    /// value) returns `false` so the `hostlink.read_back_slot` diagnostic (T034)
-    /// fires on genuine changes, not the first read. Always refreshes
-    /// `learnedAt` on a successful parse.
+    /// Records a read; `nil` (a failed read) keeps the slot learned before. True only when a known slot
+    /// changed, not on the first read, so `hostlink.read_back_slot` logs real changes.
     @discardableResult
     public mutating func learn(_ newSlot: LinkSlot?, at now: Date) -> Bool {
         guard let newSlot else { return false }

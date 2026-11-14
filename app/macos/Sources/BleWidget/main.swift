@@ -11,7 +11,8 @@ private func requireMinimumMacOS() {
     if ProcessInfo.processInfo.isOperatingSystemAtLeast(required) { return }
 
     let current = ProcessInfo.processInfo.operatingSystemVersionString
-    let message = "KeyBeacon (BleWidget) requires macOS 12 (Monterey) or later.\n"
+    let message =
+        "KeyBeacon (BleWidget) requires macOS 12 (Monterey) or later.\n"
         + "This Mac is running \(current). Please update macOS to use this app."
     FileHandle.standardError.write(Data((message + "\n").utf8))
 

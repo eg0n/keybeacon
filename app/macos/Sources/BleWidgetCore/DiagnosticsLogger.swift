@@ -4,18 +4,9 @@
 import Foundation
 import os
 
-/// Structured diagnostic logger for KBP 1.1 observability (FR-018).
-///
-/// Backing: `os.Logger` with subsystem `com.keybeacon.app` and categories
-/// `capability` / `profile` / `battery` / `staleness` / `connection`.
-///
-/// Every log call uses `%{public}` so key diagnostic fields are visible via
-/// `log stream --predicate 'subsystem == "com.keybeacon.app"'` and the
-/// Console.app filter UI; this matches `contracts/macos-ui.md` §5.
-///
-/// This is a static facade; call sites (`BLEClient` + future UI code) use
-/// `DiagnosticsLogger.capability.discovered(byte: 0x7F, …)` etc. The real
-/// `os.Logger` instances are process-wide and thread-safe.
+/// Structured diagnostics on `os.Logger`, subsystem `com.keybeacon.app`, one category per area
+/// (`capability`, `profile`, `battery`, `staleness`, `connection`). Fields are `%{public}`, so
+/// `log stream --predicate 'subsystem == "com.keybeacon.app"'` and Console.app show them.
 public enum DiagnosticsLogger {
 
     public static let subsystem = "com.keybeacon.app"
@@ -36,11 +27,14 @@ public enum DiagnosticsLogger {
         private let log = Logger(subsystem: DiagnosticsLogger.subsystem, category: "capability")
 
         /// First successful parse of a connected keyboard's CapabilityMatrix.
-        public func discovered(byte: UInt8, isSplit: Bool,
-                               hasHostConnection: Bool, hasProfile: Bool,
-                               hasSplitLink: Bool, hasOutputEndpoint: Bool,
-                               hasLeftCharging: Bool, hasRightCharging: Bool) {
-            log.info("""
+        public func discovered(
+            byte: UInt8, isSplit: Bool,
+            hasHostConnection: Bool, hasProfile: Bool,
+            hasSplitLink: Bool, hasOutputEndpoint: Bool,
+            hasLeftCharging: Bool, hasRightCharging: Bool
+        ) {
+            log.info(
+                """
                 capability.discovered raw=0x\(byte, format: .hex, privacy: .public) \
                 is_split=\(isSplit, privacy: .public) \
                 has_host_connection=\(hasHostConnection, privacy: .public) \
@@ -55,7 +49,8 @@ public enum DiagnosticsLogger {
         /// Invariant violation (IV-C1 / IV-C3) → the offending bit is dropped
         /// by the caller; this entry records the violation.
         public func inconsistent(byte: UInt8, reason: String) {
-            log.warning("""
+            log.warning(
+                """
                 capability.inconsistent raw=0x\(byte, format: .hex, privacy: .public) \
                 reason=\(reason, privacy: .public)
                 """)
@@ -63,7 +58,8 @@ public enum DiagnosticsLogger {
 
         /// The capability byte changed between notifies (hot-reload scenario).
         public func mutated(fromByte: UInt8, toByte: UInt8) {
-            log.notice("""
+            log.notice(
+                """
                 capability.mutated from=0x\(fromByte, format: .hex, privacy: .public) \
                 to=0x\(toByte, format: .hex, privacy: .public)
                 """)
@@ -78,7 +74,8 @@ public enum DiagnosticsLogger {
 
         /// `profile_index` > `profile_max_slots` → UI clamps; this records the raw.
         public func outOfRange(rawIndex: UInt8, maxSlots: UInt8) {
-            log.warning("""
+            log.warning(
+                """
                 profile.out_of_range raw_index=\(rawIndex, privacy: .public) \
                 max_slots=\(maxSlots, privacy: .public)
                 """)
@@ -92,7 +89,8 @@ public enum DiagnosticsLogger {
         private let log = Logger(subsystem: DiagnosticsLogger.subsystem, category: "battery")
 
         public func lengthMismatch(expected: Int, got: Int, isSplit: Bool) {
-            log.warning("""
+            log.warning(
+                """
                 battery.length_mismatch expected=\(expected, privacy: .public) \
                 got=\(got, privacy: .public) \
                 is_split=\(isSplit, privacy: .public)
@@ -101,7 +99,8 @@ public enum DiagnosticsLogger {
 
         /// Byte value in `101..254` (reserved); treat as unavailable (C-B3).
         public func outOfRange(rawByte: UInt8, side: String) {
-            log.warning("""
+            log.warning(
+                """
                 battery.out_of_range raw=0x\(rawByte, format: .hex, privacy: .public) \
                 side=\(side, privacy: .public)
                 """)
@@ -116,7 +115,8 @@ public enum DiagnosticsLogger {
 
         /// Crossed from live → stale (3 s elapsed or BLE disconnect).
         public func fieldStale(fieldKey: String, reason: String) {
-            log.notice("""
+            log.notice(
+                """
                 staleness.field_stale field=\(fieldKey, privacy: .public) \
                 reason=\(reason, privacy: .public)
                 """)
@@ -136,7 +136,8 @@ public enum DiagnosticsLogger {
 
         /// `host_state.connected` bit toggled.
         public func stateChanged(connected: Bool, reasonRaw: UInt8) {
-            log.notice("""
+            log.notice(
+                """
                 connection.state_changed connected=\(connected, privacy: .public) \
                 reason_raw=0x\(reasonRaw, format: .hex, privacy: .public)
                 """)
@@ -167,13 +168,11 @@ public enum DiagnosticsLogger {
             log.notice("hostlink.cannot_determine missing=\(missing, privacy: .public)")
         }
 
-        /// Spec 005 / US2 (T034): a Link-slot re-read returned a slot that
-        /// differs from the previously-cached value — the host re-learned this
-        /// connection's slot (e.g. the keyboard was re-paired, or the peer
-        /// address resolved to a bond after connect). Info level; fires only on
-        /// a genuine change, not the initial read.
+        /// A Link-slot re-read returned a different slot than cached, e.g. after a re-pair. Info level;
+        /// not logged for the first read.
         public func hostLinkReadBackSlot(from: UInt8, to: UInt8) {
-            log.info("""
+            log.info(
+                """
                 hostlink.read_back_slot from=\(from, privacy: .public) \
                 to=\(to, privacy: .public)
                 """)

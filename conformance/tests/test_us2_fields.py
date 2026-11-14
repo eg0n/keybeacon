@@ -118,8 +118,13 @@ def test_split_link_warn_when_reserved_bits_nonzero():
 def test_battery_characteristic_absent_leaves_c9_skip():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(None, is_split=False, chars_present=_chars(aa3_present=False),
-                      extras=extras, report=report)
+    check_us2_battery(
+        None,
+        is_split=False,
+        chars_present=_chars(aa3_present=False),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "SKIP"
     assert extras["field_support"]["overall_battery"] == "unsupported"
     assert extras["field_support"]["left_battery"] == "unsupported"
@@ -134,8 +139,13 @@ def test_battery_characteristic_absent_leaves_c9_skip():
 def test_battery_overall_normal_pass():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([72]), is_split=False, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([72]),
+        is_split=False,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "PASS"
     assert extras["field_support"]["overall_battery"] == "supported"
     assert extras["field_support"]["left_battery"] == "unsupported"
@@ -145,8 +155,13 @@ def test_battery_overall_normal_pass():
 def test_battery_overall_sentinel_pass():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([0xFF]), is_split=False, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([0xFF]),
+        is_split=False,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "PASS"
     assert extras["field_support"]["overall_battery"] == "supported"
 
@@ -154,8 +169,13 @@ def test_battery_overall_sentinel_pass():
 def test_battery_overall_reserved_value_warn():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([150]), is_split=False, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([150]),
+        is_split=False,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "WARN"
     assert "0x96" in report.results["C9"].detail
     assert extras["field_support"]["overall_battery"] == "malformed"
@@ -164,8 +184,13 @@ def test_battery_overall_reserved_value_warn():
 def test_battery_overall_length_mismatch_fail():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([50, 60]), is_split=False, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([50, 60]),
+        is_split=False,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "FAIL"
     assert "length 2 != 1" in report.results["C9"].detail
     assert extras["field_support"]["overall_battery"] == "malformed"
@@ -174,8 +199,9 @@ def test_battery_overall_length_mismatch_fail():
 def test_battery_overall_empty_payload_fail():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(b"", is_split=False, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        b"", is_split=False, chars_present=_chars(), extras=extras, report=report
+    )
     assert report.results["C9"].status == "FAIL"
 
 
@@ -187,8 +213,13 @@ def test_battery_overall_empty_payload_fail():
 def test_battery_split_normal_pass():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([80, 75]), is_split=True, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([80, 75]),
+        is_split=True,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "PASS"
     assert extras["field_support"]["left_battery"] == "supported"
     assert extras["field_support"]["right_battery"] == "supported"
@@ -198,8 +229,13 @@ def test_battery_split_normal_pass():
 def test_battery_split_one_sentinel_pass():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([0xFF, 60]), is_split=True, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([0xFF, 60]),
+        is_split=True,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "PASS"
     assert extras["field_support"]["left_battery"] == "supported"
     assert extras["field_support"]["right_battery"] == "supported"
@@ -208,8 +244,13 @@ def test_battery_split_one_sentinel_pass():
 def test_battery_split_one_reserved_value_warn():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([110, 55]), is_split=True, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([110, 55]),
+        is_split=True,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "WARN"
     assert "left_battery" in report.results["C9"].detail
     assert extras["field_support"]["left_battery"] == "malformed"
@@ -219,8 +260,13 @@ def test_battery_split_one_reserved_value_warn():
 def test_battery_split_both_reserved_warn():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([200, 150]), is_split=True, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([200, 150]),
+        is_split=True,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "WARN"
     detail = report.results["C9"].detail
     assert "left_battery" in detail and "right_battery" in detail
@@ -231,8 +277,9 @@ def test_battery_split_both_reserved_warn():
 def test_battery_split_length_mismatch_fail():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([50]), is_split=True, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([50]), is_split=True, chars_present=_chars(), extras=extras, report=report
+    )
     assert report.results["C9"].status == "FAIL"
     assert "length 1 != 2" in report.results["C9"].detail
     assert extras["field_support"]["left_battery"] == "malformed"
@@ -242,24 +289,39 @@ def test_battery_split_length_mismatch_fail():
 def test_battery_split_boundary_hundred_percent():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([100, 100]), is_split=True, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([100, 100]),
+        is_split=True,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "PASS"
 
 
 def test_battery_split_boundary_zero_percent():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([0, 0]), is_split=True, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([0, 0]),
+        is_split=True,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "PASS"
 
 
 def test_battery_parsed_stashed_in_extras():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(bytes([33, 44]), is_split=True, chars_present=_chars(),
-                      extras=extras, report=report)
+    check_us2_battery(
+        bytes([33, 44]),
+        is_split=True,
+        chars_present=_chars(),
+        extras=extras,
+        report=report,
+    )
     assert "battery_parsed" in extras
     assert extras["battery_parsed"]["left"]["percent"] == 33
     assert extras["battery_parsed"]["right"]["percent"] == 44
@@ -268,7 +330,12 @@ def test_battery_parsed_stashed_in_extras():
 def test_battery_present_but_raw_none_fail():
     report = Report(use_color=False)
     extras = _fresh_extras()
-    check_us2_battery(None, is_split=False, chars_present=_chars(aa3_present=True),
-                      extras=extras, report=report)
+    check_us2_battery(
+        None,
+        is_split=False,
+        chars_present=_chars(aa3_present=True),
+        extras=extras,
+        report=report,
+    )
     assert report.results["C9"].status == "FAIL"
     assert "returned no data" in report.results["C9"].detail

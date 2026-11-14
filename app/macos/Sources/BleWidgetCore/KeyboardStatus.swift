@@ -15,7 +15,7 @@ public struct KeyboardStatus {
 
     public static func parse(_ data: Data) -> KeyboardStatus? {
         guard data.count >= 2 else { return nil }
-        let idx  = data[0]
+        let idx = data[0]
         let mods = data[1]
         var name = ""
         if data.count > 2 {
@@ -29,8 +29,8 @@ public struct KeyboardStatus {
         )
     }
 
-    public var shiftActive:   Bool { mods & 0x22 != 0 }
+    public var shiftActive: Bool { mods & 0x22 != 0 }
     public var controlActive: Bool { mods & 0x11 != 0 }
-    public var optionActive:  Bool { mods & 0x44 != 0 }
+    public var optionActive: Bool { mods & 0x44 != 0 }
     public var commandActive: Bool { mods & 0x88 != 0 }
 }

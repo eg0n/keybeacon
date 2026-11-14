@@ -110,14 +110,19 @@ class Report:
     def render_and_exit(self, gap_name=None):
         print("\n==== KBP 1.x conformance ====")
         if gap_name is not None:
-            print('discovered GAP name: "%s"  (confirm this is your keyboard)' % gap_name)
+            print(
+                'discovered GAP name: "%s"  (confirm this is your keyboard)' % gap_name
+            )
         print("")
         failed = False
         for item in self.ORDER:
             status, detail = self.results.get(item, ("SKIP", "not evaluated"))
             mark = {
-                "PASS": "PASS", "FAIL": "FAIL", "WARN": "WARN",
-                "MANUAL": "MANUAL", "SKIP": "SKIP",
+                "PASS": "PASS",
+                "FAIL": "FAIL",
+                "WARN": "WARN",
+                "MANUAL": "MANUAL",
+                "SKIP": "SKIP",
             }.get(status, status)
             line = "  [%-6s] %s: %s" % (mark, item, self.TITLES[item])
             if detail:
@@ -160,7 +165,7 @@ class Conformance(NSObject):
         self.cand_i = 0
         self.connected = False
         self.scanning = False
-        self.found_via = None          # "connected" | "scan"
+        self.found_via = None  # "connected" | "scan"
         self.report = Report()
         self.gap_name = None
         self.initial_read_done = False
@@ -173,8 +178,10 @@ class Conformance(NSObject):
     def centralManagerDidUpdateState_(self, central):
         state = central.state()
         if state != POWERED_ON:
-            _env_error("Bluetooth is not powered on (state=%s). "
-                       "Turn Bluetooth on and retry." % state)
+            _env_error(
+                "Bluetooth is not powered on (state=%s). "
+                "Turn Bluetooth on and retry." % state
+            )
             return
         conn = central.retrieveConnectedPeripheralsWithServices_(
             [HID_UUID, SERVICE_UUID]
@@ -182,13 +189,16 @@ class Conformance(NSObject):
         self.candidates = list(conn)
         if self.candidates:
             self.found_via = "connected"
-            print("found %d connected candidate(s): %s"
-                  % (len(self.candidates),
-                     [str(p.name()) for p in self.candidates]))
+            print(
+                "found %d connected candidate(s): %s"
+                % (len(self.candidates), [str(p.name()) for p in self.candidates])
+            )
             self._try_next()
         else:
-            print("no connected keyboard found; scanning by service UUID "
-                  "(connect the keyboard to this Mac for the reliable path) ...")
+            print(
+                "no connected keyboard found; scanning by service UUID "
+                "(connect the keyboard to this Mac for the reliable path) ..."
+            )
             self.found_via = "scan"
             self.scanning = True
             central.scanForPeripheralsWithServices_options_([SERVICE_UUID], None)
@@ -196,9 +206,11 @@ class Conformance(NSObject):
 
     def _try_next(self):
         if self.cand_i >= len(self.candidates):
-            _env_error("no KeyBeacon keyboard found (no connected candidate "
-                       "exposes service AA440AA0-…). Connect a KBP keyboard "
-                       "and retry.")
+            _env_error(
+                "no KeyBeacon keyboard found (no connected candidate "
+                "exposes service AA440AA0-…). Connect a KBP keyboard "
+                "and retry."
+            )
             return
         p = self.candidates[self.cand_i]
         self.cand_i += 1
@@ -210,13 +222,17 @@ class Conformance(NSObject):
 
     def _connect_timeout_for_(self, p):
         if not self.connected and self.peripheral is p:
-            _env_error("connect timed out after %gs. Is the keyboard on and "
-                       "in range?" % self.timeout)
+            _env_error(
+                "connect timed out after %gs. Is the keyboard on and "
+                "in range?" % self.timeout
+            )
 
     def _scan_timeout(self):
         if not self.connected:
-            _env_error("scan found no KeyBeacon keyboard in %gs. Is the "
-                       "keyboard on and in range?" % self.timeout)
+            _env_error(
+                "scan found no KeyBeacon keyboard in %gs. Is the "
+                "keyboard on and in range?" % self.timeout
+            )
 
     def centralManager_didDiscoverPeripheral_advertisementData_RSSI_(
         self, central, peripheral, adv, rssi
@@ -249,7 +265,7 @@ class Conformance(NSObject):
             self._try_next()
             return
         svc = None
-        for s in (peripheral.services() or []):
+        for s in peripheral.services() or []:
             if _uuid_eq(s.UUID(), SERVICE_UUID):
                 svc = s
                 break
@@ -261,13 +277,19 @@ class Conformance(NSObject):
             return
         # Item 4: discovered while connected via connected-peripheral enumeration.
         if self.found_via == "connected":
-            self.report.set("C4", "PASS",
-                            "found via connected-peripheral enumeration while the "
-                            "keyboard was connected (stopped advertising).")
+            self.report.set(
+                "C4",
+                "PASS",
+                "found via connected-peripheral enumeration while the "
+                "keyboard was connected (stopped advertising).",
+            )
         else:
-            self.report.set("C4", "WARN",
-                            "found via active scan (keyboard was not connected to "
-                            "this Mac); connect it and re-run to verify item 4.")
+            self.report.set(
+                "C4",
+                "WARN",
+                "found via active scan (keyboard was not connected to "
+                "this Mac); connect it and re-run to verify item 4.",
+            )
         peripheral.discoverCharacteristics_forService_([CHAR_UUID], svc)
 
     def peripheral_didDiscoverCharacteristicsForService_error_(
@@ -279,13 +301,16 @@ class Conformance(NSObject):
             self.report.render_and_exit(self.gap_name)
             return
         ch = None
-        for c in (service.characteristics() or []):
+        for c in service.characteristics() or []:
             if _uuid_eq(c.UUID(), CHAR_UUID):
                 ch = c
                 break
         if ch is None:
-            self.report.set("C1", "FAIL",
-                            "status characteristic AA440AA1-… not found on the service.")
+            self.report.set(
+                "C1",
+                "FAIL",
+                "status characteristic AA440AA1-… not found on the service.",
+            )
             self.report.render_and_exit(self.gap_name)
             return
         self.characteristic = ch
@@ -296,9 +321,12 @@ class Conformance(NSObject):
         if not (props & PROP_NOTIFY):
             missing.append("NOTIFY")
         if missing:
-            self.report.set("C1", "FAIL",
-                            "characteristic is missing required propert%s: %s"
-                            % ("y" if len(missing) == 1 else "ies", ", ".join(missing)))
+            self.report.set(
+                "C1",
+                "FAIL",
+                "characteristic is missing required propert%s: %s"
+                % ("y" if len(missing) == 1 else "ies", ", ".join(missing)),
+            )
             self.report.render_and_exit(self.gap_name)
             return
         # Need the CCC descriptor to complete item 1.
@@ -308,18 +336,22 @@ class Conformance(NSObject):
         self, peripheral, characteristic, error
     ):
         has_ccc = False
-        for d in (characteristic.descriptors() or []):
+        for d in characteristic.descriptors() or []:
             if _uuid_eq(d.UUID(), CCC_UUID):
                 has_ccc = True
                 break
         if not has_ccc:
-            self.report.set("C1", "FAIL",
-                            "no Client Characteristic Configuration (CCC/0x2902) "
-                            "descriptor — NOTIFY cannot be subscribed per spec.")
+            self.report.set(
+                "C1",
+                "FAIL",
+                "no Client Characteristic Configuration (CCC/0x2902) "
+                "descriptor — NOTIFY cannot be subscribed per spec.",
+            )
             self.report.render_and_exit(self.gap_name)
             return
-        self.report.set("C1", "PASS",
-                        "service + characteristic present with READ|NOTIFY and CCC.")
+        self.report.set(
+            "C1", "PASS", "service + characteristic present with READ|NOTIFY and CCC."
+        )
         print("reading initial snapshot + subscribing ...")
         peripheral.readValueForCharacteristic_(characteristic)
         peripheral.setNotifyValue_forCharacteristic_(True, characteristic)
@@ -346,8 +378,10 @@ class Conformance(NSObject):
             self.initial_read_done = True
             self._check_payload(data)
             # Observe an idle window to confirm change-suppression (no idle spam).
-            print("observing %gs for idle traffic (do not touch the keyboard) ..."
-                  % self.observe)
+            print(
+                "observing %gs for idle traffic (do not touch the keyboard) ..."
+                % self.observe
+            )
             AppHelper.callLater(self.observe, self._finalize)
         else:
             # Any value arriving after the initial READ, while idle, is a notify.
@@ -365,50 +399,72 @@ class Conformance(NSObject):
     def _check_payload(self, data):
         print("  initial READ: %s" % self._fmt(data))
         if len(data) < 2:
-            self.report.set("C2", "FAIL",
-                            "snapshot is %d byte(s); KBP requires >= 2." % len(data))
+            self.report.set(
+                "C2", "FAIL", "snapshot is %d byte(s); KBP requires >= 2." % len(data)
+            )
             return
         try:
             data[2:].decode("utf-8")
-            self.report.set("C2", "PASS",
-                            "%d-byte snapshot; layer_name is valid UTF-8%s."
-                            % (len(data), " (empty)" if len(data) == 2 else ""))
+            self.report.set(
+                "C2",
+                "PASS",
+                "%d-byte snapshot; layer_name is valid UTF-8%s."
+                % (len(data), " (empty)" if len(data) == 2 else ""),
+            )
         except UnicodeDecodeError:
-            self.report.set("C2", "FAIL",
-                            "layer_name bytes are not valid UTF-8.")
+            self.report.set("C2", "FAIL", "layer_name bytes are not valid UTF-8.")
 
     def _finalize(self):
         if not self.subscribed:
-            self.report.set("C3", "FAIL",
-                            "NOTIFY subscription was not confirmed.")
+            self.report.set("C3", "FAIL", "NOTIFY subscription was not confirmed.")
         elif self.idle_updates == 0:
-            self.report.set("C3", "PASS",
-                            "subscribed; no notifications while idle (change-"
-                            "suppression consistent). Switch layers to see live updates.")
+            self.report.set(
+                "C3",
+                "PASS",
+                "subscribed; no notifications while idle (change-"
+                "suppression consistent). Switch layers to see live updates.",
+            )
         else:
-            self.report.set("C3", "FAIL",
-                            "%d notification(s) arrived while idle — change "
-                            "suppression (spec §5) appears broken." % self.idle_updates)
+            self.report.set(
+                "C3",
+                "FAIL",
+                "%d notification(s) arrived while idle — change "
+                "suppression (spec §5) appears broken." % self.idle_updates,
+            )
         # Item 5 (RECOMMENDED): GAP name.
         if self.gap_name and str(self.gap_name).strip():
             self.report.set("C5", "PASS", 'GAP name = "%s".' % self.gap_name)
         else:
-            self.report.set("C5", "WARN",
-                            "no GAP device name; host will use a generic fallback "
-                            "(RECOMMENDED, not required).")
+            self.report.set(
+                "C5",
+                "WARN",
+                "no GAP device name; host will use a generic fallback "
+                "(RECOMMENDED, not required).",
+            )
         # Item 6: not host-observable.
-        self.report.set("C6", "MANUAL",
-                        "verify in firmware config that the service is built only "
-                        "into the central (host-link) image, not peripheral/reset.")
+        self.report.set(
+            "C6",
+            "MANUAL",
+            "verify in firmware config that the service is built only "
+            "into the central (host-link) image, not peripheral/reset.",
+        )
         self.report.render_and_exit(self.gap_name)
 
 
 def main():
     ap = argparse.ArgumentParser(description="KBP 1.x conformance self-test")
-    ap.add_argument("--timeout", type=float, default=15.0,
-                    help="seconds to wait for discovery/connect (default 15)")
-    ap.add_argument("--observe", type=float, default=4.0,
-                    help="idle-observation window for change-suppression (default 4)")
+    ap.add_argument(
+        "--timeout",
+        type=float,
+        default=15.0,
+        help="seconds to wait for discovery/connect (default 15)",
+    )
+    ap.add_argument(
+        "--observe",
+        type=float,
+        default=4.0,
+        help="idle-observation window for change-suppression (default 4)",
+    )
     args = ap.parse_args()
 
     runner = Conformance.alloc().initWithArgs_(args)

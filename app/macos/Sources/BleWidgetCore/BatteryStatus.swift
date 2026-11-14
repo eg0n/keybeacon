@@ -63,19 +63,17 @@ public struct BatteryStatus: Equatable {
         self.kind = kind
     }
 
-    /// Decode a Battery payload. The caller MUST pass the Connectivity-advertised
-    /// `isSplit` so this parser can validate the length (C-B1 / C-B2).
-    ///
-    /// Returns `nil` on length mismatch; the caller SHOULD emit a
-    /// `battery.length_mismatch` diagnostic.
+    /// Decodes a Battery payload, checking its length against AA2's `isSplit` (C-B1 / C-B2). `nil` on
+    /// a mismatch, which the caller should log as `battery.length_mismatch`.
     public static func parse(from data: Data, isSplit: Bool) -> BatteryStatus? {
         if isSplit {
             guard data.count == 2 else { return nil }
             let bytes = [UInt8](data)
-            return BatteryStatus(kind: .split(
-                left:  BatteryReading(fromByte: bytes[0]),
-                right: BatteryReading(fromByte: bytes[1])
-            ))
+            return BatteryStatus(
+                kind: .split(
+                    left: BatteryReading(fromByte: bytes[0]),
+                    right: BatteryReading(fromByte: bytes[1])
+                ))
         } else {
             guard data.count == 1 else { return nil }
             return BatteryStatus(kind: .overall(BatteryReading(fromByte: data[data.startIndex])))

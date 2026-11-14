@@ -18,7 +18,7 @@ public enum LanguagePreference: String, CaseIterable {
     /// entry localises to the currently active UI language (FR-012).
     public var displayName: String {
         switch self {
-        case .system:  return L10n.text("Menu_LanguageSystem", language: L10n.currentLanguage)
+        case .system: return L10n.text("Menu_LanguageSystem", language: L10n.currentLanguage)
         case .chinese: return L10n.text("Menu_LanguageChinese", language: .chinese)
         case .english: return L10n.text("Menu_LanguageEnglish", language: .english)
         }
@@ -47,11 +47,8 @@ public enum ResolvedLanguage {
         }
     }
 
-    /// Resolve a preference against the system language code.
-    ///
-    /// - `system` → Chinese when the code starts with `zh`, otherwise English
-    ///   (the explicit fallback — the static tables have no neutral locale).
-    /// - `chinese` / `english` → forced.
+    /// `system` gives Chinese for a `zh` system language and English otherwise; `chinese` and
+    /// `english` are forced.
     public static func resolve(
         preference: LanguagePreference,
         systemCode: String?
@@ -68,11 +65,8 @@ public enum ResolvedLanguage {
 
 // MARK: - String table
 
-/// Pure, unit-testable UI string lookup (FR-006 / FR-010 / Principle IV).
-///
-/// The table is keyed identically to the Windows `Resources.resx` entries so
-/// the two platforms stay aligned. Lookup order on a miss is
-/// `selected → English → key itself`, never empty and never a crash.
+/// UI strings, keyed like the Windows `Resources.resx`. A missing key falls back to English, then
+/// to the key itself: never empty, never a crash.
 public enum L10n {
     /// The language currently in effect for the whole app. Set once at launch
     /// from the persisted preference and again on every language switch, then

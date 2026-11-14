@@ -3,27 +3,18 @@
 
 import Foundation
 
-/// Abstract colour for the per-link host-status visual encoding. The palette is
-/// platform-agnostic here (no AppKit) so it is pure-function unit-testable; the
-/// UI layer maps each case to `NSColor` (macOS) / `SolidColorBrush` (Windows).
-///
-/// Single source of truth: **both** the full card and the compact strip reuse
-/// this exact mapping (FR-016). Never define a mode-specific scheme.
+/// Platform-neutral colour for the per-link host status, mapped to `NSColor` or a Windows brush by
+/// the UI. The full card and the compact strip both use this one mapping.
 public enum HostStatusColor: Equatable {
-    case green   // in use on this computer
+    case green  // in use on this computer
     case orange  // keyboard active on another computer
-    case blue    // keyboard on USB (not this BLE link)
-    case gray    // cannot determine
-    case red     // disconnected
+    case blue  // keyboard on USB (not this BLE link)
+    case gray  // cannot determine
+    case red  // disconnected
 }
 
-/// The colour + shape symbol that encode a `LocalHostStatus`. Redundant by
-/// design: `symbol` (a shape) lets the state be told apart without relying on
-/// colour alone (WCAG 1.4.1 / FR-016).
-///
-/// Contract: `specs/005-host-link-profile-awareness/contracts/host-status-visual.md`
-/// (V-1 table, V-2 rules). Structurally identical to the Windows
-/// `HostStatusVisual` (cross-platform parity, constitution §III).
+/// Colour and shape for a `LocalHostStatus`; the shape tells states apart without colour (WCAG
+/// 1.4.1). Matches the Windows `HostStatusVisual` and the spec 005 host-status-visual contract.
 public struct HostStatusVisual: Equatable {
 
     /// Abstract palette entry (mapped to a real colour by the UI layer).
@@ -40,12 +31,8 @@ public struct HostStatusVisual: Equatable {
     }
 }
 
-/// Map a derived `LocalHostStatus` to its colour + symbol. Pure, exhaustive,
-/// no I/O (FR-014).
-///
-/// Colours: green = in-use-here, orange = active-elsewhere (blue is reserved
-/// for USB so the two never collide), blue = on-USB, gray = cannot-determine,
-/// red = disconnected (an alarm, visually distinct from the gray "unknown").
+/// Green in use here, orange active elsewhere, blue on USB, gray can't tell, red disconnected (an
+/// alarm, unlike gray's "unknown").
 public func hostStatusVisual(for status: LocalHostStatus) -> HostStatusVisual {
     switch status {
     case .inUseHere:

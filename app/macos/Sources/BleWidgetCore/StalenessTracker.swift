@@ -3,21 +3,9 @@
 
 import Foundation
 
-/// Per-field staleness bookkeeping for KBP 1.1 live values (FR-015).
-///
-/// A field is "live" when its last notify timestamp is within the staleness
-/// window (default **3 seconds**, per Clarify Q1); older than that → "stale",
-/// and the UI MUST render the last-known value + "updated hh:mm:ss" instead of
-/// a live number.
-///
-/// This type is deliberately a plain `final class` rather than an `actor` so
-/// it is trivially unit-testable with injected monotonic timestamps and does
-/// not spawn any timer of its own. The 1-Hz tick that decides when to re-check
-/// is driven by `BLEClient` (see tasks.md T019).
-///
-/// Thread safety: callers MUST serialise access on the BLE delegate queue
-/// (`BLEClient` already does this; the UI reads via a snapshot copy on the
-/// main actor).
+/// Per-field staleness of KBP 1.1 values: live while the last notify is within the window (3 s),
+/// stale after, when the UI shows the last value as such. Takes timestamps rather than reading a
+/// clock and runs no timer, so it tests easily; callers serialise access on the main queue.
 public final class StalenessTracker {
 
     /// How long since the last notify counts as "stale".
@@ -32,12 +20,8 @@ public final class StalenessTracker {
         self.stalenessWindow = stalenessWindow
     }
 
-    /// Record a fresh notify for `fieldKey` at monotonic time `at`.
-    ///
-    /// Clears any forced-stale state and overrides older timestamps. If `at`
-    /// is older than a previously-recorded timestamp for the same field (clock
-    /// moving backward), the newer value is retained — the tracker never
-    /// regresses, so a time-source glitch cannot cause a spurious "stale".
+    /// Records a notify for `fieldKey` at monotonic time `at` and clears forced staleness. An older `at`
+    /// than already recorded is ignored, so a clock glitch can't make a field stale.
     public func recordNotify(fieldKey: String, at: TimeInterval) {
         if let existing = lastNotify[fieldKey], existing > at {
             // Keep the newer timestamp; still clear forced-stale.

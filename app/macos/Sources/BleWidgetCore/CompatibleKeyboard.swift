@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The TOTEM ZMK Contributors
 // SPDX-License-Identifier: MIT
 
-import Foundation
 import CoreBluetooth
+import Foundation
 
 public struct CompatibleKeyboard: Equatable {
     public static let serviceUUID = CBUUID(
@@ -32,7 +32,8 @@ public struct CompatibleKeyboard: Equatable {
 
     public var displayName: String {
         if let name = name,
-           !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
             return name
         }
         return "Keyboard \(identifier.uuidString.prefix(8))"

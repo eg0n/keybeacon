@@ -5,7 +5,7 @@ let package = Package(
     name: "BleWidget",
     platforms: [.macOS(.v12)],
     products: [
-        .executable(name: "BleWidget", targets: ["BleWidget"]),
+        .executable(name: "BleWidget", targets: ["BleWidget"])
     ],
     targets: [
         .target(name: "BleWidgetCore"),

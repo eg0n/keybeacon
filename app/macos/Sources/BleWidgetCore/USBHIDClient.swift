@@ -22,10 +22,10 @@ public final class USBHIDClient {
     public static let usage = 0x44
 
     public enum Report: UInt8 {
-        case status = 1        // AA1
+        case status = 1  // AA1
         case connectivity = 2  // AA2
-        case battery = 3       // AA3
-        case activity = 4      // AA5
+        case battery = 3  // AA3
+        case activity = 4  // AA5
     }
 
     /// Report ID plus 15 bytes: the payload's length, the payload, then zeros.
@@ -56,14 +56,18 @@ public final class USBHIDClient {
         ]
         IOHIDManagerSetDeviceMatching(manager, matching as CFDictionary)
         let context = Unmanaged.passUnretained(self).toOpaque()
-        IOHIDManagerRegisterDeviceMatchingCallback(manager, { context, _, _, device in
-            guard let context else { return }
-            Unmanaged<USBHIDClient>.fromOpaque(context).takeUnretainedValue().attach(device)
-        }, context)
-        IOHIDManagerRegisterDeviceRemovalCallback(manager, { context, _, _, device in
-            guard let context else { return }
-            Unmanaged<USBHIDClient>.fromOpaque(context).takeUnretainedValue().detach(device)
-        }, context)
+        IOHIDManagerRegisterDeviceMatchingCallback(
+            manager,
+            { context, _, _, device in
+                guard let context else { return }
+                Unmanaged<USBHIDClient>.fromOpaque(context).takeUnretainedValue().attach(device)
+            }, context)
+        IOHIDManagerRegisterDeviceRemovalCallback(
+            manager,
+            { context, _, _, device in
+                guard let context else { return }
+                Unmanaged<USBHIDClient>.fromOpaque(context).takeUnretainedValue().detach(device)
+            }, context)
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
         self.manager = manager
@@ -85,7 +89,7 @@ public final class USBHIDClient {
     // MARK: - Device lifecycle
 
     private func attach(_ device: IOHIDDevice) {
-        guard self.device == nil else { return } // one keyboard at a time
+        guard self.device == nil else { return }  // one keyboard at a time
         self.device = device
         capability = nil
         latestConnectivity = nil
@@ -145,7 +149,7 @@ public final class USBHIDClient {
 
     private func handle(reportID: UInt8, report: Data) {
         guard let kind = Report(rawValue: reportID),
-              let payload = USBHIDClient.payload(fromReport: report, reportID: reportID)
+            let payload = USBHIDClient.payload(fromReport: report, reportID: reportID)
         else { return }
         handle(kind, payload: payload)
     }
@@ -221,7 +225,8 @@ public final class USBHIDClient {
 
     /// A stable identifier from the USB vendor, product and serial number (or location).
     static func identifier(for device: IOHIDDevice) -> UUID {
-        let serial = stringProperty(device, kIOHIDSerialNumberKey)
+        let serial =
+            stringProperty(device, kIOHIDSerialNumberKey)
             ?? String(intProperty(device, kIOHIDLocationIDKey))
         let key = "usb:\(intProperty(device, kIOHIDVendorIDKey)):\(intProperty(device, kIOHIDProductIDKey)):\(serial)"
         return stableUUID(for: key)
@@ -233,17 +238,21 @@ public final class USBHIDClient {
             var hash = offset
             for byte in key.utf8 {
                 hash ^= UInt64(byte)
-                hash = hash &* 0x100000001b3
+                hash = hash &* 0x100_0000_01b3
             }
             return hash
         }
-        let a = fnv(0xcbf29ce484222325), b = fnv(0x84222325cbf29ce4)
+        let a = fnv(0xcbf2_9ce4_8422_2325)
+        let b = fnv(0x8422_2325_cbf2_9ce4)
         var bytes = [UInt8](repeating: 0, count: 16)
         for i in 0..<8 {
             bytes[i] = UInt8(truncatingIfNeeded: a >> (8 * UInt64(i)))
             bytes[8 + i] = UInt8(truncatingIfNeeded: b >> (8 * UInt64(i)))
         }
-        return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-                           bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
+        return UUID(
+            uuid: (
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+            ))
     }
 }

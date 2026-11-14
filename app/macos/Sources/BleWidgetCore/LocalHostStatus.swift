@@ -3,14 +3,9 @@
 
 import Foundation
 
-/// The host-local "is this keyboard being used *on this computer*?" status,
-/// derived per BLE connection from the KBP 1.2 Link-slot characteristic (`AA4`)
-/// combined with the KBP 1.1 Connectivity snapshot (`AA2`).
-///
-/// This is the five-state enum from `data-model.md` §6. It is deliberately
-/// distinct from the transport-level connection state: it answers a
-/// higher-level question — "in use *here* vs *elsewhere*" — that only a
-/// per-connection READ can honestly answer.
+/// Whether the keyboard is in use on this computer, from this connection's Link-slot (`AA4`) and
+/// the Connectivity snapshot (`AA2`). Distinct from the transport state: it answers "here or
+/// elsewhere", which only a per-connection read can.
 public enum LocalHostStatus: Equatable {
     /// The keyboard's active profile maps to *this* connection's slot.
     case inUseHere
@@ -27,28 +22,9 @@ public enum LocalHostStatus: Equatable {
     case disconnected
 }
 
-/// Pure, host-local status derivation. Structurally identical to the Windows
-/// `HostContextStatus.DeriveLocalHostStatus` (cross-platform parity,
-/// constitution §III).
-///
-/// Inputs are already-parsed fields + whether `AA4` was discovered. No I/O, no
-/// global state — exhaustively unit-testable (FR-014).
-///
-/// Priority (`data-model.md` §6.1): `disconnected` > `onUsb` >
-/// `inUseHere`/`activeElsewhere` > `cannotDetermine`. The function NEVER
-/// returns `inUseHere`/`activeElsewhere` without positive confirmation
-/// (constitution §IV, FR-008).
-///
-/// - Parameters:
-///   - hasAA4: whether the Link-slot characteristic was discovered on this
-///     keyboard (capability probing is by characteristic existence, HW-5).
-///   - connected: the live BLE transport connection state. `false` short-
-///     circuits to `.disconnected` (FR-009), overriding any cached value.
-///   - capability: parsed `capability_bits` (`AA2` byte 0), or `nil` if `AA2`
-///     is absent / not yet read.
-///   - activeProfile: parsed active profile (`AA2` bytes 2–3), or `nil`.
-///   - localSlot: parsed Link-slot (`AA4`), or `nil` if not yet read.
-///   - output: parsed output endpoint (`AA2` byte 5), or `nil`.
+/// Derives `LocalHostStatus`, as the Windows `DeriveLocalHostStatus` does. Priority: disconnected >
+/// on USB > in use here / active elsewhere > can't tell, and never "here" or "elsewhere" without
+/// confirmation. `nil` inputs are fields not read yet; `hasAA4` is whether the keyboard has AA4.
 public func deriveLocalHostStatus(
     hasAA4: Bool,
     connected: Bool,
@@ -70,7 +46,7 @@ public func deriveLocalHostStatus(
 
     // 4. active profile unknown / open / no profile capability.
     guard let capability, capability.hasProfile,
-          let activeProfile, activeProfile.index != 0, !activeProfile.isOpen
+        let activeProfile, activeProfile.index != 0, !activeProfile.isOpen
     else { return .cannotDetermine }
 
     // 5. firmware could not resolve this connection to a slot.

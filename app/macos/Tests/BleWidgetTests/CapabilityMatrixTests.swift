@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import XCTest
+
 @testable import BleWidgetCore
 
 final class CapabilityMatrixTests: XCTestCase {
@@ -41,7 +42,8 @@ final class CapabilityMatrixTests: XCTestCase {
     func testBits0To6_AllCombinationsRoundTrip() {
         for raw in UInt8(0)...UInt8(0x7F) {
             let m = CapabilityMatrix(fromByte: raw)
-            XCTAssertEqual(m.rawByte, raw,
+            XCTAssertEqual(
+                m.rawByte, raw,
                 "round-trip mismatch for raw byte \(String(raw, radix: 2))")
         }
     }
@@ -49,14 +51,14 @@ final class CapabilityMatrixTests: XCTestCase {
     // MARK: - IV-C1: hasSplitLink requires isSplit
 
     func testIVC1_HasSplitLinkRequiresIsSplit_Violation() {
-        let m = CapabilityMatrix(fromByte: 0x08) // hasSplitLink only
+        let m = CapabilityMatrix(fromByte: 0x08)  // hasSplitLink only
         XCTAssertFalse(m.isSplit)
         XCTAssertTrue(m.hasSplitLink)
         XCTAssertFalse(m.isConsistent, "IV-C1 violation must flip isConsistent to false")
     }
 
     func testIVC1_HasSplitLinkWithIsSplit_Consistent() {
-        let m = CapabilityMatrix(fromByte: 0x09) // isSplit + hasSplitLink
+        let m = CapabilityMatrix(fromByte: 0x09)  // isSplit + hasSplitLink
         XCTAssertTrue(m.isConsistent)
     }
 

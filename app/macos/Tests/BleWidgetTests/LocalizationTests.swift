@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import XCTest
+
 @testable import BleWidgetCore
 
 final class LocalizationTests: XCTestCase {

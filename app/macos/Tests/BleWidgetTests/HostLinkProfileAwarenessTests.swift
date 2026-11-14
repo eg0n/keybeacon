@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import XCTest
+
 @testable import BleWidgetCore
 
 /// US1 (spec 005) pure-function tests: `LinkSlot.parse` (T010) and
@@ -291,8 +292,8 @@ final class HostLinkProfileAwarenessTests: XCTestCase {
         let t0 = Date(timeIntervalSince1970: 1_000)
         let t1 = Date(timeIntervalSince1970: 2_000)
 
-        _ = cache.learn(LinkSlot(slot: 2), at: t0) // N = 2 (initial)
-        let readBack = cache.learn(LinkSlot(slot: 5), at: t1) // M = 5 (re-pair)
+        _ = cache.learn(LinkSlot(slot: 2), at: t0)  // N = 2 (initial)
+        let readBack = cache.learn(LinkSlot(slot: 5), at: t1)  // M = 5 (re-pair)
 
         XCTAssertTrue(readBack, "slot N→M must report a read-back change (T034)")
         XCTAssertEqual(cache.slot?.slot, 5)
@@ -400,26 +401,33 @@ final class HostLinkProfileAwarenessTests: XCTestCase {
     func testVisual_exhaustive_fiveStates() {
         // Colour + symbol single source of truth (host-status-visual.md V-1).
         // Both full and compact modes consume this exact mapping (FR-016).
-        XCTAssertEqual(hostStatusVisual(for: .inUseHere),
-                       HostStatusVisual(color: .green, symbol: "●"))
-        XCTAssertEqual(hostStatusVisual(for: .activeElsewhere(slot: 3)),
-                       HostStatusVisual(color: .orange, symbol: "◐"))
-        XCTAssertEqual(hostStatusVisual(for: .onUsb),
-                       HostStatusVisual(color: .blue, symbol: "◆"))
-        XCTAssertEqual(hostStatusVisual(for: .cannotDetermine),
-                       HostStatusVisual(color: .gray, symbol: "○"))
-        XCTAssertEqual(hostStatusVisual(for: .disconnected),
-                       HostStatusVisual(color: .red, symbol: "✕"))
+        XCTAssertEqual(
+            hostStatusVisual(for: .inUseHere),
+            HostStatusVisual(color: .green, symbol: "●"))
+        XCTAssertEqual(
+            hostStatusVisual(for: .activeElsewhere(slot: 3)),
+            HostStatusVisual(color: .orange, symbol: "◐"))
+        XCTAssertEqual(
+            hostStatusVisual(for: .onUsb),
+            HostStatusVisual(color: .blue, symbol: "◆"))
+        XCTAssertEqual(
+            hostStatusVisual(for: .cannotDetermine),
+            HostStatusVisual(color: .gray, symbol: "○"))
+        XCTAssertEqual(
+            hostStatusVisual(for: .disconnected),
+            HostStatusVisual(color: .red, symbol: "✕"))
     }
 
     func testVisual_disconnectedIsRed_notGray_distinctFromCannotDetermine() {
         // V-2.3: "not connected" reads as an alarm (red), never confused with
         // the grey "unknown" state.
         XCTAssertEqual(hostStatusVisual(for: .disconnected).color, .red)
-        XCTAssertNotEqual(hostStatusVisual(for: .disconnected).color,
-                          hostStatusVisual(for: .cannotDetermine).color)
-        XCTAssertNotEqual(hostStatusVisual(for: .disconnected).symbol,
-                          hostStatusVisual(for: .cannotDetermine).symbol)
+        XCTAssertNotEqual(
+            hostStatusVisual(for: .disconnected).color,
+            hostStatusVisual(for: .cannotDetermine).color)
+        XCTAssertNotEqual(
+            hostStatusVisual(for: .disconnected).symbol,
+            hostStatusVisual(for: .cannotDetermine).symbol)
     }
 
     func testVisual_coloursAreUniquePerState() {

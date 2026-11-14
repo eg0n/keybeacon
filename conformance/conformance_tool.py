@@ -39,8 +39,7 @@ import json
 import os
 import platform
 import sys
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -50,10 +49,10 @@ from typing import Any
 # -----------------------------------------------------------------------------
 
 SERVICE_UUID = "aa440aa0-f5ed-4c48-84a1-8062d20d3d55"
-CHAR_STATUS_UUID = "aa440aa1-f5ed-4c48-84a1-8062d20d3d55"       # KBP 1.0
+CHAR_STATUS_UUID = "aa440aa1-f5ed-4c48-84a1-8062d20d3d55"  # KBP 1.0
 CHAR_CONNECTIVITY_UUID = "aa440aa2-f5ed-4c48-84a1-8062d20d3d55"  # KBP 1.1
-CHAR_BATTERY_UUID = "aa440aa3-f5ed-4c48-84a1-8062d20d3d55"       # KBP 1.1
-CHAR_LINK_SLOT_UUID = "aa440aa4-f5ed-4c48-84a1-8062d20d3d55"     # KBP 1.2
+CHAR_BATTERY_UUID = "aa440aa3-f5ed-4c48-84a1-8062d20d3d55"  # KBP 1.1
+CHAR_LINK_SLOT_UUID = "aa440aa4-f5ed-4c48-84a1-8062d20d3d55"  # KBP 1.2
 CCC_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb"
 HID_SERVICE_UUID = "00001812-0000-1000-8000-00805f9b34fb"
 
@@ -523,9 +522,7 @@ def check_us4_charging(parsed: dict[str, Any], extras: dict[str, Any]) -> None:
         )
     if charging["reserved_bits_2_7"] != 0:
         bits_bin = f"0b{charging['reserved_bits_2_7']:06b}"
-        issues_warn.append(
-            f"charging_flags reserved bits 2-7 non-zero ({bits_bin})"
-        )
+        issues_warn.append(f"charging_flags reserved bits 2-7 non-zero ({bits_bin})")
 
     if cap["has_left_charging"]:
         field_support["left_charging"] = "malformed" if issues_warn else "supported"
@@ -543,9 +540,7 @@ def check_us4_charging(parsed: dict[str, Any], extras: dict[str, Any]) -> None:
         detail = " | ".join(issues_fail + issues_warn)
         _record_c8_subcheck(extras, "charging_flags", "FAIL", detail)
     elif issues_warn:
-        _record_c8_subcheck(
-            extras, "charging_flags", "WARN", " | ".join(issues_warn)
-        )
+        _record_c8_subcheck(extras, "charging_flags", "WARN", " | ".join(issues_warn))
     elif cap["has_left_charging"] or cap["has_right_charging"]:
         _record_c8_subcheck(extras, "charging_flags", "PASS", None)
 
@@ -741,7 +736,9 @@ class Report:
                 status="SKIP",
                 detail="not evaluated",
             )
-        self.use_color = use_color and sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+        self.use_color = (
+            use_color and sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+        )
 
     def set(self, item_id: str, status: str, detail: str | None = None) -> None:
         if item_id not in self.results:
@@ -775,7 +772,9 @@ class Report:
         print("==== KBP conformance self-test ====")
         kbd = extras.get("keyboard", {})
         if kbd.get("name"):
-            print(f'keyboard: "{kbd["name"]}"  (address: {kbd.get("address", "unknown")})')
+            print(
+                f'keyboard: "{kbd["name"]}"  (address: {kbd.get("address", "unknown")})'
+            )
         print(f"declared MINOR: {extras.get('declared_minor', 'unknown')}")
         print("")
         for item in self.results.values():
@@ -788,19 +787,21 @@ class Report:
         print("")
         verdict = self.determine_verdict()
         if verdict == "conforms":
-            print(f'Verdict: CONFORMS to KBP {extras.get("declared_minor", "unknown")} '
-                  f'(keyboard: "{kbd.get("name", "unknown")}")')
+            print(
+                f'Verdict: CONFORMS to KBP {extras.get("declared_minor", "unknown")} '
+                f'(keyboard: "{kbd.get("name", "unknown")}")'
+            )
         else:
-            print(f"Verdict: NONCONFORMS (one or more REQUIRED items failed)")
+            print("Verdict: NONCONFORMS (one or more REQUIRED items failed)")
 
     def _colorize(self, status: str) -> str:
         if not self.use_color:
             return status
         colors = {
-            "PASS": "\x1b[32m",   # green
-            "FAIL": "\x1b[31m",   # red
-            "WARN": "\x1b[33m",   # yellow
-            "SKIP": "\x1b[90m",   # grey
+            "PASS": "\x1b[32m",  # green
+            "FAIL": "\x1b[31m",  # red
+            "WARN": "\x1b[33m",  # yellow
+            "SKIP": "\x1b[90m",  # grey
             "MANUAL": "\x1b[36m",  # cyan
         }
         reset = "\x1b[0m"
@@ -899,16 +900,10 @@ def default_field_support(declared_minor: str) -> dict[str, str]:
 # -----------------------------------------------------------------------------
 
 
-# macOS-only helpers: a BLE HID keyboard already connected to the host stops
-# advertising, so `BleakScanner.discover()` cannot see it. Fortunately
-# CoreBluetooth exposes retrieveConnectedPeripheralsWithServices_() and
-# retrievePeripheralsWithIdentifiers_() which do not depend on advertising
-# at all. We piggy-back on bleak's internal CentralManagerDelegate so the
-# returned peripheral can still be used by BleakClient downstream.
-#
-# `_scanner_keepalive` holds a reference to the BleakScanner whose internal
-# CBCentralManager owns the retrieved CBPeripheral; releasing it before the
-# BleakClient finishes would invalidate the peripheral.
+# macOS: a connected BLE keyboard stops advertising, so discover() can't see it; CoreBluetooth's
+# retrieveConnectedPeripherals/retrievePeripheralsWithIdentifiers can, through bleak's delegate.
+# _scanner_keepalive holds the scanner whose CBCentralManager owns the retrieved peripheral until
+# BleakClient is done with it.
 
 _scanner_keepalive: list[Any] = []
 
@@ -1016,7 +1011,9 @@ async def _retrieve_peripheral_bledevice_darwin(address_str: str) -> Any | None:
     return device
 
 
-async def discover_and_check(args: argparse.Namespace, report: Report) -> dict[str, Any]:
+async def discover_and_check(
+    args: argparse.Namespace, report: Report
+) -> dict[str, Any]:
     """Discover a KBP keyboard, run C1-C12 checks against it, and return extras
     (keyboard info + characteristic presence + capability_bits + field_support).
 
@@ -1095,9 +1092,7 @@ async def discover_and_check(args: argparse.Namespace, report: Report) -> dict[s
                     "connected KBP peripherals and then `--address <id>` "
                     "to probe one of them."
                 )
-            _env_error(
-                "no KBP keyboard found by active scan." + hint
-            )
+            _env_error("no KBP keyboard found by active scan." + hint)
             return extras
 
     extras["keyboard"] = {
@@ -1115,7 +1110,10 @@ async def discover_and_check(args: argparse.Namespace, report: Report) -> dict[s
             services = client.services
             await _probe_characteristics(services, extras, report)
             declared_minor = report.determine_declared_minor(
-                {k: v.get("present", False) for k, v in extras["characteristics_present"].items()}
+                {
+                    k: v.get("present", False)
+                    for k, v in extras["characteristics_present"].items()
+                }
             )
             extras["declared_minor"] = declared_minor
             extras["field_support"] = default_field_support(declared_minor)
@@ -1147,7 +1145,11 @@ async def discover_and_check(args: argparse.Namespace, report: Report) -> dict[s
             # declared_minor — read + range-check whenever AA4 is present (a
             # 1.2 keyboard without AA2 is anomalous but still probed; C14 then
             # WARNs because profile_max_slots cannot be resolved).
-            if extras["characteristics_present"].get("AA440AA4", {}).get("present", False):
+            if (
+                extras["characteristics_present"]
+                .get("AA440AA4", {})
+                .get("present", False)
+            ):
                 link_raw = await _read_link_slot_raw(client, extras)
                 parsed_conn = extras.get("connectivity_parsed")
                 max_slots = (
@@ -1264,7 +1266,9 @@ def _choose_candidate(devices: list, device_filter: str | None):
     return devices[0]
 
 
-async def _probe_characteristics(services, extras: dict[str, Any], report: Report) -> None:
+async def _probe_characteristics(
+    services, extras: dict[str, Any], report: Report
+) -> None:
     """Walk GATT services, record characteristic presence + properties + CCC."""
     present = {
         "AA440AA1": {"present": False, "properties": [], "ccc": False},
@@ -1313,13 +1317,25 @@ def _mark_skip_with_us_phase_notes(report: Report) -> None:
         "C3": ("SKIP", "implemented in user story 1 (T025 NOTIFY observation)"),
         "C4": ("SKIP", "implemented in user story 1 (T025 connected-peripheral enum)"),
         "C5": ("SKIP", "implemented in user story 1 (T025 GAP name observation)"),
-        "C6": ("MANUAL", "verify in firmware build config: service only in central image"),
+        "C6": (
+            "MANUAL",
+            "verify in firmware build config: service only in central image",
+        ),
         "C7": ("SKIP", "implemented in user story phases (T025/T031/T035/T039)"),
         "C8": ("SKIP", "implemented in user story phases (T025/T031/T035/T039)"),
-        "C9": ("SKIP", "implemented in user story 2 (T031 Battery characteristic checks)"),
-        "C10": ("SKIP", "implemented in user story phases (T025 NOTIFY on state change)"),
+        "C9": (
+            "SKIP",
+            "implemented in user story 2 (T031 Battery characteristic checks)",
+        ),
+        "C10": (
+            "SKIP",
+            "implemented in user story phases (T025 NOTIFY on state change)",
+        ),
         "C11": ("SKIP", "implemented in user story 2 (T031 Battery NOTIFY throttling)"),
-        "C12": ("MANUAL", "verify in firmware: 1.1 characteristics only in central image"),
+        "C12": (
+            "MANUAL",
+            "verify in firmware: 1.1 characteristics only in central image",
+        ),
         "C13": ("SKIP", "evaluated when AA440AA4-… is present (KBP 1.2 Link-slot)"),
         "C14": ("SKIP", "evaluated when AA440AA4-… is present (KBP 1.2 Link-slot)"),
     }

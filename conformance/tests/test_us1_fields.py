@@ -162,7 +162,9 @@ def test_host_connection_warn_single_reserved_bit():
 
 def test_profile_unsupported_when_capability_zero():
     # cap 0x00 → has_profile=0
-    parsed = parse_connectivity(_make_payload(cap_byte=0x00, profile_idx_byte=0x02, profile_max=5))
+    parsed = parse_connectivity(
+        _make_payload(cap_byte=0x00, profile_idx_byte=0x02, profile_max=5)
+    )
     extras = _fresh_extras()
     check_us1_fields(parsed, extras)
     assert extras["field_support"]["profile"] == "unsupported"
@@ -171,7 +173,9 @@ def test_profile_unsupported_when_capability_zero():
 
 def test_profile_supported_within_range():
     # cap 0x04 → has_profile=1; profile_idx 0x03, max 0x05 → OK
-    parsed = parse_connectivity(_make_payload(cap_byte=0x04, profile_idx_byte=0x03, profile_max=5))
+    parsed = parse_connectivity(
+        _make_payload(cap_byte=0x04, profile_idx_byte=0x03, profile_max=5)
+    )
     extras = _fresh_extras()
     check_us1_fields(parsed, extras)
     assert extras["field_support"]["profile"] == "supported"
@@ -179,7 +183,9 @@ def test_profile_supported_within_range():
 
 
 def test_profile_boundary_index_equals_max_slots():
-    parsed = parse_connectivity(_make_payload(cap_byte=0x04, profile_idx_byte=0x05, profile_max=5))
+    parsed = parse_connectivity(
+        _make_payload(cap_byte=0x04, profile_idx_byte=0x05, profile_max=5)
+    )
     extras = _fresh_extras()
     check_us1_fields(parsed, extras)
     assert extras["field_support"]["profile"] == "supported"
@@ -187,7 +193,9 @@ def test_profile_boundary_index_equals_max_slots():
 
 def test_profile_fail_when_index_exceeds_max():
     # cap 0x04 → has_profile=1; profile_idx 0x06, max 0x05 → FAIL
-    parsed = parse_connectivity(_make_payload(cap_byte=0x04, profile_idx_byte=0x06, profile_max=5))
+    parsed = parse_connectivity(
+        _make_payload(cap_byte=0x04, profile_idx_byte=0x06, profile_max=5)
+    )
     extras = _fresh_extras()
     check_us1_fields(parsed, extras)
     assert extras["field_support"]["profile"] == "malformed"
@@ -197,7 +205,9 @@ def test_profile_fail_when_index_exceeds_max():
 
 
 def test_profile_fail_when_max_slots_zero_but_has_profile():
-    parsed = parse_connectivity(_make_payload(cap_byte=0x04, profile_idx_byte=0x00, profile_max=0))
+    parsed = parse_connectivity(
+        _make_payload(cap_byte=0x04, profile_idx_byte=0x00, profile_max=0)
+    )
     extras = _fresh_extras()
     check_us1_fields(parsed, extras)
     assert extras["field_support"]["profile"] == "malformed"
@@ -206,7 +216,9 @@ def test_profile_fail_when_max_slots_zero_but_has_profile():
 
 def test_profile_open_bit_does_not_affect_validation():
     # cap 0x04; profile byte 0x81 → index=1, is_open=1; max=5 → still PASS
-    parsed = parse_connectivity(_make_payload(cap_byte=0x04, profile_idx_byte=0x81, profile_max=5))
+    parsed = parse_connectivity(
+        _make_payload(cap_byte=0x04, profile_idx_byte=0x81, profile_max=5)
+    )
     extras = _fresh_extras()
     check_us1_fields(parsed, extras)
     assert extras["field_support"]["profile"] == "supported"

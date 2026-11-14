@@ -92,7 +92,8 @@ public final class AppSettings {
     public var languagePreference: LanguagePreference {
         get {
             guard let raw = defaults.string(forKey: Self.languagePrefKey),
-                  let pref = LanguagePreference(rawValue: raw) else {
+                let pref = LanguagePreference(rawValue: raw)
+            else {
                 return .system
             }
             return pref
@@ -182,7 +183,8 @@ public final class AppSettings {
         guard !defaults.bool(forKey: Self.migratedKey) else { return }
 
         if defaults.object(forKey: Self.lockedKey) == nil,
-           let legacyLocked = defaults.object(forKey: Self.legacyLockedKey) {
+            let legacyLocked = defaults.object(forKey: Self.legacyLockedKey)
+        {
             defaults.set(legacyLocked, forKey: Self.lockedKey)
         }
 

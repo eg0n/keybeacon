@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import XCTest
+
 @testable import BleWidgetCore
 
 /// Persistence-layer coverage for the UI-language preference (FR-001 / FR-004).

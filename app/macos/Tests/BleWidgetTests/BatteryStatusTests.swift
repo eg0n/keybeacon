@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import XCTest
+
 @testable import BleWidgetCore
 
 final class BatteryStatusTests: XCTestCase {
@@ -42,11 +43,13 @@ final class BatteryStatusTests: XCTestCase {
         for byte in UInt8(101)...UInt8(254) {
             let s = BatteryStatus.parse(from: Data([byte]), isSplit: false)
             guard case .overall(let reading) = s?.kind,
-                  case .unavailable(let raw, let outOfRange) = reading else {
+                case .unavailable(let raw, let outOfRange) = reading
+            else {
                 return XCTFail("reserved byte \(byte) must decode to .unavailable")
             }
             XCTAssertEqual(raw, byte)
-            XCTAssertTrue(outOfRange,
+            XCTAssertTrue(
+                outOfRange,
                 "reserved byte \(byte) should carry outOfRange=true")
         }
     }
@@ -69,10 +72,13 @@ final class BatteryStatusTests: XCTestCase {
 
     func testSplit_BothPresent() {
         let s = BatteryStatus.parse(from: Data([80, 65]), isSplit: true)
-        XCTAssertEqual(s, BatteryStatus(kind: .split(
-            left: .percent(80),
-            right: .percent(65)
-        )))
+        XCTAssertEqual(
+            s,
+            BatteryStatus(
+                kind: .split(
+                    left: .percent(80),
+                    right: .percent(65)
+                )))
     }
 
     func testSplit_OneSentinelPlusNormal() {
@@ -96,10 +102,14 @@ final class BatteryStatusTests: XCTestCase {
         }
         if case .unavailable(_, let outOfRange) = left {
             XCTAssertFalse(outOfRange)
-        } else { XCTFail("left should be .unavailable (sentinel)") }
+        } else {
+            XCTFail("left should be .unavailable (sentinel)")
+        }
         if case .unavailable(_, let outOfRange) = right {
             XCTAssertFalse(outOfRange)
-        } else { XCTFail("right should be .unavailable (sentinel)") }
+        } else {
+            XCTFail("right should be .unavailable (sentinel)")
+        }
     }
 
     func testSplit_ReservedPlusSentinel() {
@@ -111,11 +121,15 @@ final class BatteryStatusTests: XCTestCase {
         if case .unavailable(let raw, let outOfRange) = left {
             XCTAssertEqual(raw, 150)
             XCTAssertTrue(outOfRange)
-        } else { XCTFail("left (150) should be .unavailable + outOfRange") }
+        } else {
+            XCTFail("left (150) should be .unavailable + outOfRange")
+        }
         if case .unavailable(let raw, let outOfRange) = right {
             XCTAssertEqual(raw, 255)
             XCTAssertFalse(outOfRange)
-        } else { XCTFail("right (255) should be .unavailable (sentinel)") }
+        } else {
+            XCTFail("right (255) should be .unavailable (sentinel)")
+        }
     }
 
     // MARK: - IV-BS2: split length mismatch → nil
@@ -154,7 +168,8 @@ final class BatteryStatusTests: XCTestCase {
     func testBatteryReading_RawByteRoundTrip() {
         for byte in UInt8(0)...UInt8(255) {
             let reading = BatteryStatus.BatteryReading(fromByte: byte)
-            XCTAssertEqual(reading.rawByte, byte,
+            XCTAssertEqual(
+                reading.rawByte, byte,
                 "rawByte round-trip failed for byte \(byte)")
         }
     }

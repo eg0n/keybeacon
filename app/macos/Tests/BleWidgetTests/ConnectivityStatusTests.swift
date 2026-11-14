@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import XCTest
+
 @testable import BleWidgetCore
 
 final class ConnectivityStatusTests: XCTestCase {
@@ -21,8 +22,8 @@ final class ConnectivityStatusTests: XCTestCase {
 
     func testLongPayload_TwelveBytes_IgnoresTail() {
         let data = Data([
-            0x7F, 0x01, 0x82, 0x05, 0x03, 0x02, 0x03,       // first 7 bytes
-            0xAA, 0xBB, 0xCC, 0xDD, 0xEE,                   // extra 5 bytes
+            0x7F, 0x01, 0x82, 0x05, 0x03, 0x02, 0x03,  // first 7 bytes
+            0xAA, 0xBB, 0xCC, 0xDD, 0xEE,  // extra 5 bytes
         ])
         guard let s = ConnectivityStatus.parse(from: data) else {
             return XCTFail("12-byte payload must parse successfully")
@@ -110,7 +111,8 @@ final class ConnectivityStatusTests: XCTestCase {
         ] {
             let data = Data([0x00, 0x00, 0x00, 0x00, 0x00, code, 0x00])
             let s = ConnectivityStatus.parse(from: data)!
-            XCTAssertEqual(s.output, expected,
+            XCTAssertEqual(
+                s.output, expected,
                 "endpoint code \(code) should map to \(expected)")
         }
     }
@@ -119,8 +121,9 @@ final class ConnectivityStatusTests: XCTestCase {
         for code in UInt8(3)...UInt8(255) {
             let data = Data([0x00, 0x00, 0x00, 0x00, 0x00, code, 0x00])
             let s = ConnectivityStatus.parse(from: data)!
-            if case let .reserved(byte) = s.output {
-                XCTAssertEqual(byte, code,
+            if case .reserved(let byte) = s.output {
+                XCTAssertEqual(
+                    byte, code,
                     "reserved endpoint code \(code) should round-trip through .reserved")
             } else {
                 XCTFail("output byte \(code) must map to .reserved(\(code)), got \(s.output)")
@@ -134,7 +137,7 @@ final class ConnectivityStatusTests: XCTestCase {
         for leftOnline in [false, true] {
             for rightOnline in [false, true] {
                 var byte: UInt8 = 0
-                if leftOnline  { byte |= 0x01 }
+                if leftOnline { byte |= 0x01 }
                 if rightOnline { byte |= 0x02 }
                 let data = Data([0x00, 0x00, 0x00, 0x00, byte, 0x00, 0x00])
                 let s = ConnectivityStatus.parse(from: data)!
@@ -150,7 +153,7 @@ final class ConnectivityStatusTests: XCTestCase {
         for leftCharging in [false, true] {
             for rightCharging in [false, true] {
                 var byte: UInt8 = 0
-                if leftCharging  { byte |= 0x01 }
+                if leftCharging { byte |= 0x01 }
                 if rightCharging { byte |= 0x02 }
                 let data = Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, byte])
                 let s = ConnectivityStatus.parse(from: data)!

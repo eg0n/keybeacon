@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The TOTEM ZMK Contributors
 // SPDX-License-Identifier: MIT
 
-import Foundation
 import CoreBluetooth
+import Foundation
 
 public enum BLEConnectionState {
     case connecting
@@ -30,33 +30,30 @@ public protocol BLEClientDelegate: AnyObject {
     /// the entire 1.1 UI card (invariant IV-X1 / U-5). This is a one-shot
     /// callback fired at characteristic-discovery time.
     func bleClient(_ client: BLEClient, didDetermineKBPMinor minor: KBPMinor)
-    /// Per-link host context update (spec 005, KBP 1.2): the derived five-state
-    /// status answering "is this keyboard in use *on this computer*?". Fired on
-    /// every relevant input change (AA2 notify, AA4 read, connect/disconnect).
-    /// `nil` means the keyboard exposes no `AA440AA4-…` (old firmware) or the
-    /// link is down → the host hides the per-link row (no new UI, CF-8).
+    /// KBP 1.2: whether the keyboard is in use on this computer, on every AA2 notify, AA4 read and
+    /// link change. `nil` when the keyboard has no `AA440AA4-…` or the link is down: hide the row.
     func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?)
     /// KBP 1.3 Activity snapshot (WPM, layer count); only when the keyboard exposes `AA440AA5-…`.
     func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus)
 }
 
-public extension BLEClientDelegate {
-    func bleClient(_ client: BLEClient, didChangeActiveKeyboard keyboard: CompatibleKeyboard?) {}
-    func bleClient(_ client: BLEClient, didUpdateCandidates keyboards: [CompatibleKeyboard]) {}
-    func bleClient(_ client: BLEClient, didDetectUnsupported keyboards: [CompatibleKeyboard]) {}
-    func bleClient(_ client: BLEClient, didUpdateConnectivity status: ConnectivityStatus) {}
-    func bleClient(_ client: BLEClient, didUpdateBattery status: BatteryStatus) {}
-    func bleClient(_ client: BLEClient, didDetermineKBPMinor minor: KBPMinor) {}
-    func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?) {}
-    func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus) {}
+extension BLEClientDelegate {
+    public func bleClient(_ client: BLEClient, didChangeActiveKeyboard keyboard: CompatibleKeyboard?) {}
+    public func bleClient(_ client: BLEClient, didUpdateCandidates keyboards: [CompatibleKeyboard]) {}
+    public func bleClient(_ client: BLEClient, didDetectUnsupported keyboards: [CompatibleKeyboard]) {}
+    public func bleClient(_ client: BLEClient, didUpdateConnectivity status: ConnectivityStatus) {}
+    public func bleClient(_ client: BLEClient, didUpdateBattery status: BatteryStatus) {}
+    public func bleClient(_ client: BLEClient, didDetermineKBPMinor minor: KBPMinor) {}
+    public func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?) {}
+    public func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus) {}
 }
 
 /// Declared MINOR of the currently connected keyboard, derived from GATT
 /// characteristic presence (per protocol/README.md §14.5).
 public enum KBPMinor: Equatable {
-    case onePointZero                      // only AA440AA1-… found
-    case onePointOne(hasBattery: Bool)     // AA440AA2-… present; AA440AA3-… optional
-    case unknown                           // characteristic discovery incomplete / anomalous
+    case onePointZero  // only AA440AA1-… found
+    case onePointOne(hasBattery: Bool)  // AA440AA2-… present; AA440AA3-… optional
+    case unknown  // characteristic discovery incomplete / anomalous
 }
 
 public final class BLEClient: NSObject {
@@ -182,7 +179,10 @@ public final class BLEClient: NSObject {
 
     private func probeNext() {
         guard peripheral == nil, probeTarget == nil else { return }
-        guard !scanQueue.isEmpty else { finishScan(); return }
+        guard !scanQueue.isEmpty else {
+            finishScan()
+            return
+        }
         let p = scanQueue.removeFirst()
         probeTarget = p
         p.delegate = self
@@ -192,10 +192,11 @@ public final class BLEClient: NSObject {
     private func finishScan() {
         publishCandidates()
         let ids = confirmedCompatible.map { $0.identifier }
-        guard let chosen = CompatibleKeyboard.resolveSelection(
-                  candidates: ids, remembered: settings.selectedKeyboardIdentifier
-              ),
-              let target = confirmedCompatible.first(where: { $0.identifier == chosen })
+        guard
+            let chosen = CompatibleKeyboard.resolveSelection(
+                candidates: ids, remembered: settings.selectedKeyboardIdentifier
+            ),
+            let target = confirmedCompatible.first(where: { $0.identifier == chosen })
         else {
             // Zero compatible → keep retrying; ≥2 compatible and none remembered
             // → await an explicit choice. Release the held probe connections.
@@ -389,8 +390,9 @@ public final class BLEClient: NSObject {
         // Clamp profile_index > profile_max_slots → diagnostic log; UI is
         // responsible for the clamping of displayed index.
         if effective.hasProfile,
-           status.profile.maxSlots > 0,
-           status.profile.index > status.profile.maxSlots {
+            status.profile.maxSlots > 0,
+            status.profile.index > status.profile.maxSlots
+        {
             DiagnosticsLogger.profile.outOfRange(
                 rawIndex: status.profile.index,
                 maxSlots: status.profile.maxSlots
@@ -405,11 +407,8 @@ public final class BLEClient: NSObject {
         latestConnectivity = status
         recomputeHostStatus(connected: true)
 
-        // US2 (T031): AA4 is READ-only — re-read it when the active profile
-        // changed, or when an open/unassigned profile just became assigned.
-        // This re-learns a slot that was unresolved at connect time (peer
-        // address not yet matched to a bond) or after a re-pair, satisfying the
-        // ≤1 s refresh requirement (FR-006) without a reconnect.
+        // AA4 has no notify, so re-read it when the active profile changes or an open one gets paired:
+        // that learns a slot unresolved at connect time, or new after a re-pair, without reconnecting.
         let activeChanged = previous?.profile.index != status.profile.index
         let openClosed = (previous?.profile.isOpen == true) && !status.profile.isOpen
         if activeChanged || openClosed {
@@ -458,11 +457,8 @@ public final class BLEClient: NSObject {
         peripheral.readValue(for: linkSlotCharacteristic)
     }
 
-    /// Decode an AA4 READ (Link-slot). Because AA4 is READ-only, the value is
-    /// always the slot for *this* BLE connection — no READ/NOTIFY frame
-    /// disambiguation needed (contract CF-2). The parsed slot is cached with a
-    /// `learnedAt` stamp (T033); a read-back that differs from the previously
-    /// cached slot emits one `hostlink.read_back_slot` diagnostic (T034).
+    /// An AA4 read: always this connection's own slot. Cached with when it was learned; a slot that
+    /// differs from the cached one logs `hostlink.read_back_slot` once.
     private func handleLinkSlotRead(_ data: Data) {
         let parsed = LinkSlot.parse(from: data)
         let previousSlot = linkSlotCache.slot?.slot
@@ -475,15 +471,8 @@ public final class BLEClient: NSObject {
         recomputeHostStatus(connected: true)
     }
 
-    /// Re-derive the five-state per-link host status from the current cached
-    /// inputs and notify the delegate (spec 005 §6.1 `deriveLocalHostStatus`).
-    /// Called on every relevant input change: AA2 notify, AA4 read, and
-    /// connect/disconnect transitions.
-    ///
-    /// Emits `nil` (hide the per-link row) when the keyboard exposes no AA4 or
-    /// the link is down — old firmware shows no new UI (CF-8). When AA4 is
-    /// present but a slot cannot yet be resolved, the derived `.cannotDetermine`
-    /// is emitted (honest, not hidden).
+    /// Re-derives the per-link host status from the cached inputs and tells the delegate: `nil`
+    /// without AA4 or a link, `.cannotDetermine` while AA4 is there but no slot resolves yet.
     private func recomputeHostStatus(connected: Bool) {
         guard connected, linkSlotCharacteristic != nil else {
             lastHostStatus = nil
@@ -639,9 +628,9 @@ extension BLEClient: CBPeripheralDelegate {
 
         guard self.peripheral === peripheral else { return }
         guard classification == .supported,
-              let service = peripheral.services?.first(
-                  where: { $0.uuid == Self.serviceUUID }
-              )
+            let service = peripheral.services?.first(
+                where: { $0.uuid == Self.serviceUUID }
+            )
         else {
             central.cancelPeripheralConnection(peripheral)
             dropActiveConnection()
