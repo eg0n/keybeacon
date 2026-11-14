@@ -67,22 +67,27 @@ guard !screens.isEmpty else {
 
 _ = NSApplication.shared
 for type in screens {
-    for (name, state) in samples {
-        let view = type.init()
-        view.animates = false
-        view.frame = NSRect(origin: .zero, size: type.size)
-        view.render(state)
-        let scale: CGFloat = 2
-        guard
-            let rep = NSBitmapImageRep(
-                bitmapDataPlanes: nil, pixelsWide: Int(type.size.width * scale),
-                pixelsHigh: Int(type.size.height * scale), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
-                isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
-        else { continue }
-        rep.size = type.size
-        view.cacheDisplay(in: view.bounds, to: rep)
-        let url = outputDir.appendingPathComponent("\(type.id)-\(name).png")
-        try rep.representation(using: .png, properties: [:])?.write(to: url)
-        print(url.path)
+    for appearance in type.previewAppearances {
+        for (sample, state) in samples {
+            let suffix = type.previewAppearances.count > 1 ? (appearance == .darkAqua ? "-dark" : "-light") : ""
+            let name = sample + suffix
+            let view = type.init()
+            view.appearance = NSAppearance(named: appearance)
+            view.animates = false
+            view.frame = NSRect(origin: .zero, size: type.size)
+            view.render(state)
+            let scale: CGFloat = 2
+            guard
+                let rep = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: Int(type.size.width * scale),
+                    pixelsHigh: Int(type.size.height * scale), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                    isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+            else { continue }
+            rep.size = type.size
+            view.cacheDisplay(in: view.bounds, to: rep)
+            let url = outputDir.appendingPathComponent("\(type.id)-\(name).png")
+            try rep.representation(using: .png, properties: [:])?.write(to: url)
+            print(url.path)
+        }
     }
 }

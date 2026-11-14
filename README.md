@@ -83,6 +83,27 @@ desktop widget. Text and icons use the firmware's own bitmap fonts, glyph for gl
   is the output and for 3 seconds after a change; Caps Lock, which the dongle doesn't show there,
   turns Shift into a red Caps Lock key.
 
+### Glass widget (this fork)
+
+The same data in macOS's own design language: SF Pro and SF Symbols, system colours, light or
+dark with the system, on Liquid Glass (macOS 26 and later; a translucent material before). Choose
+**Glass Widget** under **Display Mode**.
+
+| Typing, Caps Word on (light) | Typing (dark) |
+|:---:|:---:|
+| ![Glass widget while typing, light](photos/glass-typing-light.png) | ![Glass widget while typing, dark](photos/glass-typing-dark.png) |
+| **Caps Lock on (light)** | **Right half offline, BLE profile 2 (dark)** |
+| ![Glass widget with Caps Lock on](photos/glass-idle-capslock-light.png) | ![Glass widget with the right half offline](photos/glass-half-offline-dark.png) |
+
+- **Top**: the layer, its place in the keymap and a dot per layer; a keycap per modifier, orange
+  for Caps Word and red for Caps Lock, with a capsule naming which.
+- **Speed**: words per minute and the last 40 seconds as a sparkline.
+- **Battery**: a ring per half, orange at 20 % and red at 10 %, empty while the half is offline.
+- **Output**: USB or Bluetooth, which computer it is typing to, and the BLE profiles (dashed when
+  empty).
+
+The previews show a stand-in for the glass, as offscreen renders can't capture it.
+
 The renderings come from `swift run screen-preview` (see [Build from source](#build-from-source-optional)).
 New screens are one file and a registry entry; [CLAUDE.md](CLAUDE.md) explains how.
 
@@ -396,6 +417,23 @@ KBP 数据重绘:carrefinho 的 **Operator**、**Classic**、**Radii**、**Field
 - **Field**:一格格短线,打字越快流动越快越亮,停下后慢慢平复。
 - **Crystal**:WPM、输出、修饰键网格(Caps Word 绿、Caps Lock 品红)、旋转的水晶、电量与层名。
 - Classic、Radii、Field 上,BLE 为输出时以及切换后 3 秒内显示 BLE profile(与接收器一致,从 0 编号);接收器在这几屏不显示 Caps Lock,这里把 Shift 换成红色的 Caps Lock 键。
+
+### Glass 小组件(本分支)
+
+同样的数据,采用 macOS 自身的设计语言:SF Pro 与 SF Symbols、系统配色,随系统浅色/深色切换,底层为 Liquid Glass(macOS 26 及以后;更早版本为半透明材质)。在**显示模式**中选择 **Glass Widget**。
+
+| 打字中,Caps Word 开(浅色) | 打字中(深色) |
+|:---:|:---:|
+| ![浅色 Glass 小组件,打字中](photos/glass-typing-light.png) | ![深色 Glass 小组件,打字中](photos/glass-typing-dark.png) |
+| **Caps Lock 开(浅色)** | **右半离线,BLE profile 2(深色)** |
+| ![Caps Lock 开的 Glass 小组件](photos/glass-idle-capslock-light.png) | ![右半离线的 Glass 小组件](photos/glass-half-offline-dark.png) |
+
+- **顶部**:当前层、它在键位图中的位置与每层一个圆点;每个修饰键一个键帽,Caps Word 为橙色、Caps Lock 为红色,并以胶囊标注。
+- **速度**:每分钟字数,以及最近 40 秒的走势线。
+- **电量**:每半一个圆环,20% 及以下为橙色、10% 为红色,离线时为空环。
+- **输出**:USB 或蓝牙、正在向哪台电脑输入,以及 BLE profile(空的为虚线)。
+
+预览图中的玻璃为模拟效果,离屏渲染无法捕获真实的玻璃材质。
 
 渲染图由 `swift run screen-preview` 生成。新增一个状态屏只需一个文件加一行注册;做法见 [CLAUDE.md](CLAUDE.md)。
 

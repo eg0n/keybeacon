@@ -21,6 +21,13 @@ public protocol KeyboardScreen: NSView {
 
     /// Show changes at once instead of animating them, for previews.
     var animates: Bool { get set }
+
+    /// The appearances `screen-preview` renders it in; a screen in system colours lists both.
+    static var previewAppearances: [NSAppearance.Name] { get }
+}
+
+extension KeyboardScreen {
+    public static var previewAppearances: [NSAppearance.Name] { [.darkAqua] }
 }
 
 public enum ScreenRegistry {
@@ -31,6 +38,7 @@ public enum ScreenRegistry {
         RadiiScreen.self,
         FieldScreen.self,
         CrystalScreen.self,
+        GlassScreen.self,
     ]
 
     public static func screen(id: String) -> KeyboardScreen.Type? {

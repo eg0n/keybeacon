@@ -48,7 +48,10 @@ A screen draws the whole panel from a `KeyboardState`, like a keyboard's status 
 6. Use `ScreenDrawing` for text, fills, outlines and LVGL-style arcs, and `NSColor(hex:)` for
    firmware colours.
 7. Add the type to `ScreenRegistry.all`; the Display Mode menu picks it up.
-8. Check it: `swift run screen-preview <id> /tmp/out` renders it in sample states (typing, Caps
+8. A screen in system colours sets `previewAppearances` to `[.aqua, .darkAqua]` for light and dark
+   previews. Window-server materials (glass, vibrancy) don't render offscreen: draw a stand-in
+   while `animates` is false, as `GlassScreen` does.
+9. Check it: `swift run screen-preview <id> /tmp/out` renders it in sample states (typing, Caps
    Lock, a half offline, disconnected) to PNGs; look at them.
 
 Porting a Prospector layout (carrefinho/prospector-zmk-module, `layouts/<name>`): take positions,
