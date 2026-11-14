@@ -8,6 +8,13 @@
 modifier keys** — in a small desktop app, over Bluetooth LE. It works with any keyboard that
 implements the open **KeyBeacon Protocol (KBP)**, not just one brand or model.
 
+> **This fork** ([eg0n/keybeacon](https://github.com/eg0n/keybeacon), branch `feat/usb-hid`) adds:
+> KBP over **USB**, for a keyboard or dongle plugged into the Mac; **KBP 1.3** (WPM, layer count,
+> Caps Word, Caps Lock, empty profiles, dongle topology); and pluggable **status screens**, starting
+> with the Prospector dongle's Operator screen. Its firmware is
+> [eg0n/zmk-keybeacon](https://github.com/eg0n/zmk-keybeacon/tree/feat/dongle-usb), branch
+> `feat/dongle-usb`. See [KBP 1.3 and USB](#kbp-13-and-usb-this-fork).
+
 ## Screenshots
 
 The floating panel shows your keyboard's live state — active layer, held modifiers,
@@ -33,10 +40,32 @@ profile · per-half battery · output:
 | **Active elsewhere** — orange `◐ P2` | ![Compact mode — active on another computer](photos/macos-compact-other-connected.png) |
 | **Link down** — grey `○ P4` | ![Compact mode — disconnected from this host](photos/macos-compact-this-disconnected.png) |
 
+### Prospector screen (this fork)
+
+The [Prospector](https://github.com/carrefinho/prospector-zmk-module) dongle's **Operator** status
+screen, redrawn at its 280×240 size from KBP data. Choose it under **Display Mode**; with **On
+Desktop** the panel sits behind your windows like a desktop widget.
+
+| Typing, Caps Word on | Idle, Caps Lock on |
+|:---:|:---:|
+| ![Operator screen while typing on the Nav layer with Caps Word](photos/prospector-operator-typing.png) | ![Operator screen idle on Base with Caps Lock on](photos/prospector-operator-idle-capslock.png) |
+| **Right half offline, left at 15 %, BLE profile 2** | **Disconnected** |
+| ![Operator screen with the right half offline](photos/prospector-operator-half-offline.png) | ![Operator screen with no keyboard](photos/prospector-operator-disconnected.png) |
+
+- **Top**: held modifiers; SHFT turns amber for Caps Word and red for Caps Lock.
+- **Meter**: words per minute in 26 bars, with a peak marker; the number top left, the layer name
+  bottom right, and one segment per layer below.
+- **Rings**: each half's battery, green, amber under 20 %, thin and grey while the half is offline.
+- **Bottom right**: the output (USB or BLE) and the BLE profiles, the active one lit, empty ones as
+  outlines.
+
+The renderings come from `swift run screen-preview` (see [Build from source](#build-from-source-optional)).
+New screens are one file and a registry entry; [CLAUDE.md](CLAUDE.md) explains how.
+
 ### Menu bar
 
-Reconnect, toggle the floating panel, lock / click-through, pin to a corner, switch
-display mode, or change language:
+Reconnect, toggle the floating panel, lock / click-through, put it on the desktop behind windows
+(this fork), pin to a corner, switch display mode (including status screens), or change language:
 
 ![Menu bar menu](photos/menu.png)
 
@@ -108,22 +137,22 @@ spec time. These are candidates, not commitments.
 
 ### B. Input & lock state
 
-> **Status**: 📋 Planned — no implementation yet. Would land as additive **KBP 1.2** fields.
+> **Status**: Caps Word and Caps Lock ✅ shipped in **KBP 1.3** (this fork); the rest planned.
 
 | Metric | Why it helps a screenless split | ZMK feasibility | Protocol impact |
 |--------|---------------------------------|-----------------|-----------------|
-| Caps-Word active | visualize Caps-Word with no indicator LED | Medium — behavior state needs a small hook | KBP 1.2 · field |
-| Host lock LEDs | Caps / Num / Scroll Lock reported by the host | High — HID indicators + change event | KBP 1.2 · field / characteristic |
+| Caps-Word active | ✅ visualize Caps-Word with no indicator LED | Medium — needs a caps-word event in the ZMK tree | KBP 1.3 · AA5 `flags` bit 0 |
+| Host lock LEDs | ✅ Caps Lock (Num / Scroll planned), as reported by the host | High — HID indicators + change event | KBP 1.3 · AA5 `flags` bit 1 |
 | Full active-layer stack | see every active layer, not just the top one | High — iterate per-layer active state | KBP 1.2 · appended field |
 | Sticky / one-shot pending | a pending sticky modifier or layer | Medium — partly already in `mods` | KBP 1.2 · field (partial overlap) |
 
 ### C. Typing stats
 
-> **Status**: 📋 Planned — no implementation yet. Would land as additive **KBP 1.2+** characteristics.
+> **Status**: WPM ✅ shipped in **KBP 1.3** (this fork); the rest planned.
 
 | Metric | Why it helps | ZMK feasibility | Protocol impact |
 |--------|--------------|-----------------|-----------------|
-| Typing speed (WPM) | live words-per-minute | Medium — no native WPM; module counts keypresses | KBP 1.2 · new characteristic (throttle while typing) |
+| Typing speed (WPM) | ✅ live words-per-minute | High — `CONFIG_ZMK_WPM` | KBP 1.3 · AA5 `wpm` |
 | Keystroke / session count | usage over a session | Medium — count keypress events | KBP 1.2 · stats characteristic |
 | WPM peak / rolling average | trend over time | Medium — derived from WPM | KBP 1.2 · stats characteristic |
 
@@ -137,6 +166,26 @@ spec time. These are candidates, not commitments.
 | RGB / backlight state | confirm effect, brightness, on/off after a blind toggle | Medium — underglow / backlight getters + events | KBP 1.x · characteristic |
 | Link quality (RSSI) | signal strength of the host or split link | Low — needs HCI; not exposed by default | later |
 | Uptime | time since last reset (diagnostics) | High but low value — `k_uptime` | KBP 1.x · field |
+
+## KBP 1.3 and USB (this fork)
+
+KBP 1.3 adds four optional pieces; older apps and keyboards ignore what they don't know. The
+normative text is [`protocol/README.md` §16](protocol/README.md#16-kbp-13-activity-open-profiles-dongles-and-usb-optional).
+
+- **Activity characteristic** `AA440AA5-…` (`READ` + `NOTIFY`): `[wpm, layer_count, flags]`.
+  `wpm` is 255 when the keyboard computes none; `flags` bit 0 is Caps Word, bit 1 the host's Caps
+  Lock LED. Screens use the layer count to draw one mark per layer.
+- **Empty profiles**: Connectivity (`AA2`) grows an eighth byte, `open_profiles`, a bit per BLE
+  profile with no bonded host.
+- **Dongles**: when both halves are peripherals of a dongle, `split_link_flags` bit 0 and Battery
+  `[0]` are the left half's and bit 1 and `[1]` the right half's.
+- **USB HID**: the same payloads on a vendor-defined HID interface (usage page `0xFFAA`, usage
+  `0x44`). Report IDs 1–4 are AA1, AA2, AA3 and AA5; each report body is `[length, payload…]`.
+  Input reports arrive on change, feature reports are reads. The app prefers USB while the
+  keyboard is plugged in, so a dongle on USB needs no Bluetooth link to the Mac, and no Input
+  Monitoring permission.
+
+On ZMK, the fork of `zmk-keybeacon` implements all of it (see [For keyboard authors](#for-keyboard-authors)).
 
 ## Download & run (Windows)
 
@@ -153,6 +202,10 @@ spec time. These are candidates, not commitments.
 Requires Windows 10 (build 19041 / 2004) or Windows 11.
 
 ## Download & run (macOS)
+
+> **This fork**: build the app with `./packaging/make-app.sh` (below), or download it from the
+> Totem's firmware workflow in [eg0n/miryoku_zmk](https://github.com/eg0n/miryoku_zmk) (the
+> `firmware-esb-nrfdongle` artifact holds `BleWidget-<commit>.dmg`). The steps below still apply.
 
 1. Go to the [Releases](https://github.com/ykiewang/keybeacon/releases) page and download the
    latest `BleWidget-<version>.dmg` (or `.zip`).
@@ -194,7 +247,8 @@ You only need this the first time. A future notarized release will remove the st
 ```bash
 cd app/macos
 swift build -c release        # or: swift run BleWidget
-swift test                    # pure-logic unit tests
+swift test                    # pure-logic unit tests (needs Xcode, not just the Command Line Tools)
+swift run screen-preview /tmp # renders every status screen in sample states to PNGs
 ```
 
 Package a distributable bundle locally:
@@ -221,6 +275,12 @@ enables it on the central half with the KBP 1.1 / 1.2 sub-options. Its
 [readme](https://github.com/ykiewang/zmk-config-totem#keybeacon-layer--modifier-status-over-ble)
 walks through the integration.
 
+**Dongle, USB or KBP 1.3?** Use this fork's module,
+[eg0n/zmk-keybeacon `feat/dongle-usb`](https://github.com/eg0n/zmk-keybeacon/tree/feat/dongle-usb):
+`CONFIG_ZMK_KEYBEACON_SPLIT_DONGLE=y` for a dongle central, `CONFIG_ZMK_KEYBEACON_USB=y` with
+`CONFIG_USB_HID_DEVICE_COUNT=2` for USB, and `CONFIG_ZMK_WPM=y` / `CONFIG_ZMK_HID_INDICATORS=y` for
+WPM and Caps Lock. Its README has a complete dongle configuration.
+
 **Any other firmware, or implementing from scratch?** Read [`protocol/README.md`](protocol/README.md)
 (the standard) and [`conformance/CONFORMANCE.md`](conformance/CONFORMANCE.md) (what to implement),
 then run the self-test tool:
@@ -245,6 +305,12 @@ or app may implement it.
 **KeyBeacon** 在一个小巧的桌面应用里,通过蓝牙 LE 实时显示键盘的内部状态 —— **当前层**与
 **按住的修饰键**。它适用于任何实现了开放的 **KeyBeacon 协议(KBP)** 的键盘,而不限某一品牌或型号。
 
+> **本分支**([eg0n/keybeacon](https://github.com/eg0n/keybeacon),分支 `feat/usb-hid`)新增:经
+> **USB** 传输 KBP(键盘或接收器插在 Mac 上时);**KBP 1.3**(WPM、层数、Caps Word、Caps Lock、空
+> profile、接收器拓扑);以及可插拔的**状态屏**,首个是 Prospector 接收器的 Operator 屏。固件见
+> [eg0n/zmk-keybeacon](https://github.com/eg0n/zmk-keybeacon/tree/feat/dongle-usb) 分支
+> `feat/dongle-usb`。详见下方「KBP 1.3 与 USB」。
+
 ## 界面预览
 
 悬浮面板实时显示键盘状态 —— 当前层、按住的修饰键、连接状态与左右半电量 —— 并随你打字更新。
@@ -267,9 +333,27 @@ or app may implement it.
 | **他机在用** — 橙 `◐ P2` | ![精简模式 — 在另一台电脑使用](photos/macos-compact-other-connected.png) |
 | **链路断开** — 灰 `○ P4` | ![精简模式 — 与本机断开](photos/macos-compact-this-disconnected.png) |
 
+### Prospector 屏(本分支)
+
+[Prospector](https://github.com/carrefinho/prospector-zmk-module) 接收器的 **Operator** 状态屏,按其
+280×240 尺寸用 KBP 数据重绘。在**显示模式**中选择;勾选**置于桌面**后面板位于所有窗口之下,像桌面小组件。
+
+| 打字中,Caps Word 开 | 空闲,Caps Lock 开 |
+|:---:|:---:|
+| ![打字时的 Operator 屏(Nav 层,Caps Word)](photos/prospector-operator-typing.png) | ![空闲时的 Operator 屏(Base 层,Caps Lock)](photos/prospector-operator-idle-capslock.png) |
+| **右半离线,左半 15%,BLE profile 2** | **未连接** |
+| ![右半离线的 Operator 屏](photos/prospector-operator-half-offline.png) | ![未连接键盘的 Operator 屏](photos/prospector-operator-disconnected.png) |
+
+- **顶部**:按住的修饰键;Caps Word 时 SHFT 变琥珀色,Caps Lock 时变红色。
+- **条形表**:26 格显示每分钟字数,带峰值标记;左上为数字,右下为层名,下方每层一段。
+- **圆环**:每半的电量,绿色,低于 20% 为琥珀色,离线时变细变灰。
+- **右下**:输出(USB 或 BLE)与 BLE profile,当前的点亮,空的只画轮廓。
+
+渲染图由 `swift run screen-preview` 生成。新增一个状态屏只需一个文件加一行注册;做法见 [CLAUDE.md](CLAUDE.md)。
+
 ### 菜单栏
 
-重新连接、显示/隐藏悬浮面板、锁定 / 点击穿透、吸附到屏角、切换显示模式、切换语言:
+重新连接、显示/隐藏悬浮面板、锁定 / 点击穿透、置于桌面(本分支)、吸附到屏角、切换显示模式(含状态屏)、切换语言:
 
 ![菜单栏](photos/menu.png)
 
@@ -333,8 +417,8 @@ KeyBeacon 的下一步走向——一份面向无屏(尤其是无线分体)键�
 
 | 指标 | 对无屏分体的价值 | ZMK 可行性 | 协议影响 |
 |------|----------------|-----------|---------|
-| Caps-Word 激活 | 无指示灯时可视化 Caps-Word | 中——行为状态需小 hook | KBP 1.1 · 字段 |
-| 主机锁定灯 | 主机上报的 Caps / Num / Scroll Lock | 高——HID 指示器 + 变更事件 | KBP 1.1 · 字段 / 特征 |
+| Caps-Word 激活 | ✅ 无指示灯时可视化 Caps-Word | 中——ZMK 树需提供 caps-word 事件 | KBP 1.3 · AA5 `flags` bit 0 |
+| 主机锁定灯 | ✅ 主机上报的 Caps Lock(Num / Scroll 计划中) | 高——HID 指示器 + 变更事件 | KBP 1.3 · AA5 `flags` bit 1 |
 | 完整激活层栈 | 看清每个激活层,不止最高层 | 高——遍历各层激活状态 | KBP 1.1 · 追加字段 |
 | Sticky / one-shot 待定 | 挂起的粘滞修饰键或层 | 中——部分已含在 `mods` | KBP 1.1 · 字段(部分重叠) |
 
@@ -342,7 +426,7 @@ KeyBeacon 的下一步走向——一份面向无屏(尤其是无线分体)键�
 
 | 指标 | 价值 | ZMK 可行性 | 协议影响 |
 |------|------|-----------|---------|
-| 打字速度(WPM) | 实时每分钟字数 | 中——无原生 WPM;模块内计数 keypress | KBP 1.2 · 新增特征(打字时需节流) |
+| 打字速度(WPM) | ✅ 实时每分钟字数 | 高——`CONFIG_ZMK_WPM` | KBP 1.3 · AA5 `wpm` |
 | 击键 / 会话计数 | 一次会话的使用量 | 中——计数 keypress 事件 | KBP 1.2 · stats 特征 |
 | WPM 峰值 / 滚动均值 | 趋势 | 中——由 WPM 派生 | KBP 1.2 · stats 特征 |
 
@@ -354,6 +438,22 @@ KeyBeacon 的下一步走向——一份面向无屏(尤其是无线分体)键�
 | RGB / 背光状态 | 盲切后确认效果、亮度、开关 | 中——underglow / backlight getter + 事件 | KBP 1.x · 特征 |
 | 连接质量(RSSI) | 主机或分体链路信号强弱 | 低——需 HCI,默认不暴露 | 后期 |
 | 运行时长 | 距上次复位的时间(诊断) | 高但价值低——`k_uptime` | KBP 1.x · 字段 |
+
+## KBP 1.3 与 USB(本分支)
+
+KBP 1.3 新增四项可选内容;旧版应用与键盘会忽略不认识的部分。规范文本见
+[`protocol/README.md` §16](protocol/README.md)。
+
+- **Activity 特征** `AA440AA5-…`(`READ` + `NOTIFY`):`[wpm, layer_count, flags]`。键盘不计算 WPM
+  时 `wpm` 为 255;`flags` bit 0 为 Caps Word,bit 1 为主机的 Caps Lock 灯。状态屏用层数为每层画一个标记。
+- **空 profile**:Connectivity(`AA2`)新增第 8 字节 `open_profiles`,每个未绑定主机的 BLE profile 一位。
+- **接收器**:两半都是接收器的 peripheral 时,`split_link_flags` bit 0 与 Battery `[0]` 属于左半,bit 1
+  与 `[1]` 属于右半。
+- **USB HID**:相同载荷位于厂商自定义 HID 接口(usage page `0xFFAA`,usage `0x44`)。Report ID 1–4
+  对应 AA1、AA2、AA3、AA5;每个 report 主体为 `[length, 载荷…]`。变化时发 input report,读取用 feature
+  report。键盘插着时应用优先用 USB,因此插在 USB 上的接收器无需与 Mac 建立蓝牙链路,也无需"输入监控"权限。
+
+ZMK 上由本分支的 `zmk-keybeacon` 实现全部内容(见「面向键盘作者」)。
 
 ## 下载即用(Windows)
 
@@ -368,6 +468,9 @@ KeyBeacon 的下一步走向——一份面向无屏(尤其是无线分体)键�
 需要 Windows 10(build 19041 / 2004)或 Windows 11。
 
 ## 下载即用(macOS)
+
+> **本分支**:用下文的 `./packaging/make-app.sh` 构建,或从 [eg0n/miryoku_zmk](https://github.com/eg0n/miryoku_zmk)
+> 的 Totem 固件工作流下载(`firmware-esb-nrfdongle` 产物中含 `BleWidget-<commit>.dmg`)。以下步骤同样适用。
 
 1. 打开 [Releases](https://github.com/ykiewang/keybeacon/releases) 页面,下载最新的
    `BleWidget-<版本>.dmg`(或 `.zip`)。
@@ -405,7 +508,8 @@ KeyBeacon 的下一步走向——一份面向无屏(尤其是无线分体)键�
 ```bash
 cd app/macos
 swift build -c release        # 或:swift run BleWidget
-swift test                    # 纯逻辑单元测试
+swift test                    # 纯逻辑单元测试(需要 Xcode,仅有 Command Line Tools 不够)
+swift run screen-preview /tmp # 把每个状态屏的示例状态渲染为 PNG
 ```
 
 本地打包可分发的产物:
@@ -421,6 +525,12 @@ swift test                    # 纯逻辑单元测试
 该模块(锁定到发布 tag),并在 central 构建上设置 `CONFIG_ZMK_KEYBEACON=y` 即可 —— 无需复制文件、无需
 `include()`/`rsource`。两步接入详见模块的
 [GETTING-STARTED.md](https://github.com/ykiewang/zmk-keybeacon/blob/main/GETTING-STARTED.md)。
+
+**接收器、USB 或 KBP 1.3?** 使用本分支的模块
+[eg0n/zmk-keybeacon `feat/dongle-usb`](https://github.com/eg0n/zmk-keybeacon/tree/feat/dongle-usb):
+接收器 central 设 `CONFIG_ZMK_KEYBEACON_SPLIT_DONGLE=y`,USB 设 `CONFIG_ZMK_KEYBEACON_USB=y` 并加
+`CONFIG_USB_HID_DEVICE_COUNT=2`,WPM 与 Caps Lock 分别需要 `CONFIG_ZMK_WPM=y` / `CONFIG_ZMK_HID_INDICATORS=y`。
+模块 README 中有完整的接收器配置。
 
 **想要一个可直接运行的完整示例?** [`zmk-config-totem`](https://github.com/ykiewang/zmk-config-totem)
 是一份完整的 ZMK 配置,把 KeyBeacon 接入了一把分体键盘 —— 刷进 Totem 即可直接使用,也可以直接阅读它、
