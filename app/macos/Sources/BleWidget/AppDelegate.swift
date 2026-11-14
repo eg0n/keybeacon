@@ -8,6 +8,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     private var statusItem: NSStatusItem!
     private var panel: FloatingPanel!
     private let client = BLEClient()
+    // A keyboard on USB (KBP over USB HID) takes precedence over BLE while attached.
+    private let usbClient = USBHIDClient()
+    private var usbActive = false
     private var state: BLEConnectionState = .connecting
     private var activeKeyboard: CompatibleKeyboard?
     private var candidates: [CompatibleKeyboard] = []
@@ -37,6 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
 
         client.delegate = self
         client.start()
+        usbClient.delegate = self
+        usbClient.start()
     }
 
     private func buildMenu() {
@@ -198,6 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
 
     @objc private func reconnect() {
         client.start()
+        usbClient.start()
     }
 
     @objc private func toggleLock() {
@@ -260,10 +266,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     }
 
     func bleClient(_ client: BLEClient, didUpdate status: KeyboardStatus) {
+        guard !usbActive else { return }
         panel.update(status)
     }
 
     func bleClient(_ client: BLEClient, didChangeState newState: BLEConnectionState) {
+        guard !usbActive else { return }
         state = newState
         updateMenuBarIcon()
         if newState != .connected {
@@ -273,6 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     }
 
     func bleClient(_ client: BLEClient, didChangeActiveKeyboard keyboard: CompatibleKeyboard?) {
+        guard !usbActive else { return }
         activeKeyboard = keyboard
         if keyboard != nil { unsupportedKeyboards = [] }
         statusItem.button?.toolTip = keyboard?.displayName
@@ -292,7 +301,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     }
 
     func bleClient(_ client: BLEClient, didDetermineKBPMinor minor: KBPMinor) {
-        // IV-X1 / U-5: hide the entire 1.1 card when the keyboard is KBP 1.0.
+        guard !usbActive else { return }
+        applyMinor(minor)
+    }
+
+    // IV-X1 / U-5: hide the entire 1.1 card when the keyboard is KBP 1.0.
+    private func applyMinor(_ minor: KBPMinor) {
         switch minor {
         case .onePointZero, .unknown:
             panel.setConnectivityCardVisible(false)
@@ -302,14 +316,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     }
 
     func bleClient(_ client: BLEClient, didUpdateConnectivity status: ConnectivityStatus) {
+        guard !usbActive else { return }
         panel.update(connectivity: status)
     }
 
     func bleClient(_ client: BLEClient, didUpdateBattery status: BatteryStatus) {
+        guard !usbActive else { return }
         panel.update(battery: status)
     }
 
     func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?) {
+        guard !usbActive else { return }
+        panel.update(hostStatus: status)
+    }
+}
+
+extension AppDelegate: USBHIDClientDelegate {
+    func usbClient(_ client: USBHIDClient, didAttach keyboard: CompatibleKeyboard, minor: KBPMinor) {
+        usbActive = true
+        state = .connected
+        updateMenuBarIcon()
+        activeKeyboard = keyboard
+        unsupportedKeyboards = []
+        statusItem.button?.toolTip = keyboard.displayName
+        applyMinor(minor)
+        buildMenu()
+    }
+
+    func usbClientDidDetach(_ client: USBHIDClient) {
+        usbActive = false
+        state = .notConnected
+        updateMenuBarIcon()
+        activeKeyboard = nil
+        statusItem.button?.toolTip = nil
+        panel.update(.disconnected)
+        panel.markConnectivityStaleOnDisconnect()
+        panel.update(hostStatus: nil)
+        buildMenu()
+        // Back to BLE, which re-reports whatever it is connected to.
+        self.client.start()
+    }
+
+    func usbClient(_ client: USBHIDClient, didUpdate status: KeyboardStatus) {
+        panel.update(status)
+    }
+
+    func usbClient(_ client: USBHIDClient, didUpdateConnectivity status: ConnectivityStatus) {
+        panel.update(connectivity: status)
+    }
+
+    func usbClient(_ client: USBHIDClient, didUpdateBattery status: BatteryStatus) {
+        panel.update(battery: status)
+    }
+
+    func usbClient(_ client: USBHIDClient, didUpdateHostStatus status: LocalHostStatus?) {
         panel.update(hostStatus: status)
     }
 }
