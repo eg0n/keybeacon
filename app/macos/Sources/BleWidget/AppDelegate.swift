@@ -3,6 +3,7 @@
 
 import AppKit
 import BleWidgetCore
+import BleWidgetScreens
 
 final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     private var statusItem: NSStatusItem!
@@ -147,13 +148,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
         pinChooser.submenu = pinSubmenu
         menu.addItem(pinChooser)
 
-        // "Display mode" submenu — 完整 (multi-row card) / 精简 (single-row).
+        // "Display mode" submenu: the full card, the compact strip, then every registered screen.
         let modeChooser = NSMenuItem(title: L10n.text("Menu_DisplayMode"), action: nil, keyEquivalent: "")
         let modeSubmenu = NSMenu()
         let currentMode = panel.displayMode
-        for mode in DisplayMode.allCases {
+        let screens = ScreenRegistry.all.map { (DisplayMode.screen($0.id), $0.displayName) }
+        for (mode, title) in DisplayMode.builtIn.map({ ($0, $0.displayName) }) + screens {
             let item = NSMenuItem(
-                title: mode.displayName,
+                title: title,
                 action: #selector(setDisplayMode(_:)), keyEquivalent: ""
             )
             item.target = self

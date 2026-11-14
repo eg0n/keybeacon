@@ -19,17 +19,41 @@ public enum PinnedCorner: String, CaseIterable {
     }
 }
 
-public enum DisplayMode: String, CaseIterable {
-    case full = "full"
-    case compact = "compact"
-    /// The Prospector dongle's Operator status screen.
-    case prospector = "prospector"
+/// The panel's layout: the full card, the compact strip, or a screen (a `KeyboardScreen`, by id).
+/// Stored as "full", "compact" or "screen:<id>".
+public enum DisplayMode: Equatable, RawRepresentable {
+    case full
+    case compact
+    case screen(String)
 
+    /// The built-in layouts; screens come from the app's screen registry.
+    public static let builtIn: [DisplayMode] = [.full, .compact]
+
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "full": self = .full
+        case "compact": self = .compact
+        case "prospector": self = .screen("prospector-operator")  // before screens were pluggable
+        default:
+            guard rawValue.hasPrefix("screen:") else { return nil }
+            self = .screen(String(rawValue.dropFirst("screen:".count)))
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .full: return "full"
+        case .compact: return "compact"
+        case .screen(let id): return "screen:\(id)"
+        }
+    }
+
+    /// The menu name of a built-in layout; a screen's name comes from the screen itself.
     public var displayName: String {
         switch self {
         case .full: return L10n.text("Menu_DisplayFull")
         case .compact: return L10n.text("Menu_DisplayCompact")
-        case .prospector: return L10n.text("Menu_DisplayProspector")
+        case .screen(let id): return id
         }
     }
 }

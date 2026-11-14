@@ -3,6 +3,7 @@
 
 import AppKit
 import BleWidgetCore
+import BleWidgetScreens
 
 // Shows "last-updated HH:mm:ss" next to stale values; off, staleness still dims them and is logged.
 // Turn on for debugging.
@@ -12,12 +13,9 @@ final class FloatingPanel: NSPanel {
     private let settings = AppSettings()
 
     private let topRow = NSView()
-    // displayMode == .prospector: the Prospector dongle's Operator screen, replacing the rest.
-    private let operatorScreen: OperatorScreenView = {
-        let v = OperatorScreenView(frame: NSRect(origin: .zero, size: OperatorScreenView.screenSize))
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
+    // In a screen mode, the KeyboardScreen that replaces the rest, drawn from `keyboardState`.
+    private var keyboardScreen: KeyboardScreen?
+    private var keyboardState = KeyboardStateStore()
     private let layerLabel = NSTextField(labelWithString: "")
     private let modLabels: [NSTextField] = ["⇧", "⌃", "⌥", "⌘"].map {
         NSTextField(labelWithString: $0)
@@ -274,7 +272,6 @@ final class FloatingPanel: NSPanel {
         vstack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 10, right: 10)
         content.addSubview(vstack)
         content.addSubview(compactRow)
-        content.addSubview(operatorScreen)
 
         NSLayoutConstraint.activate([
             vstack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -289,10 +286,6 @@ final class FloatingPanel: NSPanel {
             compactRow.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -10),
             compactRow.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             compactRow.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-            operatorScreen.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            operatorScreen.topAnchor.constraint(equalTo: content.topAnchor),
-            operatorScreen.widthAnchor.constraint(equalToConstant: OperatorScreenView.screenSize.width),
-            operatorScreen.heightAnchor.constraint(equalToConstant: OperatorScreenView.screenSize.height),
         ])
 
         contentView = content
@@ -607,8 +600,17 @@ final class FloatingPanel: NSPanel {
 
     // MARK: - Display mode switching
 
+    /// The chosen screen's type; `nil` in a built-in layout, or if the screen no longer exists.
+    private var screenType: KeyboardScreen.Type? {
+        guard case .screen(let id) = settings.displayMode else { return nil }
+        return ScreenRegistry.screen(id: id)
+    }
+
     private func applyDisplayMode() {
-        let mode = settings.displayMode
+        var mode = settings.displayMode
+        if case .screen = mode, screenType == nil {
+            mode = .full
+        }
         switch mode {
         case .full:
             topRow.isHidden = false
@@ -622,19 +624,45 @@ final class FloatingPanel: NSPanel {
             topRow.isHidden = true
             connectivityCard.isHidden = true
             compactRow.isHidden = false
-        case .prospector:
+        case .screen:
             topRow.isHidden = true
             connectivityCard.isHidden = true
             compactRow.isHidden = true
         }
-        operatorScreen.isHidden = mode != .prospector
-        // The screen draws its own opaque black face.
+        installScreen()
+        // A screen draws its own face.
         contentView?.layer?.backgroundColor =
-            mode == .prospector
-            ? NSColor.clear.cgColor : NSColor.black.withAlphaComponent(0.55).cgColor
+            keyboardScreen != nil ? NSColor.clear.cgColor : NSColor.black.withAlphaComponent(0.55).cgColor
         // Re-render so the newly-visible layout picks up current data.
         renderConnectivity()
         reflowFrameToContent()
+    }
+
+    /// Puts in the chosen screen, or takes the current one out in a built-in layout.
+    private func installScreen() {
+        if let current = keyboardScreen, let type = screenType,
+            ObjectIdentifier(Swift.type(of: current)) == ObjectIdentifier(type)
+        {
+            return
+        }
+        keyboardScreen?.removeFromSuperview()
+        keyboardScreen = nil
+        guard let type = screenType, let content = contentView else { return }
+        let view = type.init()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            view.topAnchor.constraint(equalTo: content.topAnchor),
+            view.widthAnchor.constraint(equalToConstant: type.size.width),
+            view.heightAnchor.constraint(equalToConstant: type.size.height),
+        ])
+        view.render(keyboardState.state)
+        keyboardScreen = view
+    }
+
+    private func renderScreen() {
+        keyboardScreen?.render(keyboardState.state)
     }
 
     // MARK: - KBP 1.1 card visibility (invariant IV-X1 / U-5)
@@ -707,7 +735,8 @@ final class FloatingPanel: NSPanel {
 
     func update(connectivity status: ConnectivityStatus) {
         cachedConnectivity = status
-        operatorScreen.update(connectivity: status)
+        keyboardState.apply(status)
+        renderScreen()
         let now = CFAbsoluteTimeGetCurrent()
         if status.capability.hasHostConnection {
             staleness.recordNotify(fieldKey: "host_connection", at: now)
@@ -726,7 +755,8 @@ final class FloatingPanel: NSPanel {
 
     func update(battery status: BatteryStatus) {
         cachedBatteryStatus = status
-        operatorScreen.update(battery: status)
+        keyboardState.apply(status)
+        renderScreen()
         let now = CFAbsoluteTimeGetCurrent()
         switch status.kind {
         case .overall(let reading):
@@ -753,6 +783,8 @@ final class FloatingPanel: NSPanel {
     /// no AA4 (or the link is down) → hide the row entirely (CF-8).
     func update(hostStatus status: LocalHostStatus?) {
         cachedHostStatus = status
+        keyboardState.apply(hostStatus: status)
+        renderScreen()
         renderLocalHostRow()
         reflowFrameToContent()
     }
@@ -1233,9 +1265,9 @@ final class FloatingPanel: NSPanel {
         contentView?.layoutSubtreeIfNeeded()
         let desiredHeight: CGFloat
         let desiredWidth: CGFloat
-        if settings.displayMode == .prospector {
-            desiredHeight = OperatorScreenView.screenSize.height
-            desiredWidth = OperatorScreenView.screenSize.width
+        if let type = screenType {
+            desiredHeight = type.size.height
+            desiredWidth = type.size.width
         } else if settings.displayMode == .compact {
             let rowHeight = max(22, compactRow.fittingSize.height)
             desiredHeight = rowHeight + 16
@@ -1363,12 +1395,14 @@ final class FloatingPanel: NSPanel {
 
     /// KBP 1.3 Activity: only the Prospector screen draws WPM and the layer count.
     func update(activity status: ActivityStatus) {
-        operatorScreen.update(activity: status)
+        keyboardState.apply(status)
+        renderScreen()
     }
 
     func update(_ status: KeyboardStatus) {
         cachedStatus = status
-        operatorScreen.update(status: status)
+        keyboardState.apply(status)
+        renderScreen()
         let txt = status.connected ? status.layerName : L10n.text("State_Disconnected")
         layerLabel.stringValue = txt
         compactLayerLabel.stringValue = txt
