@@ -6,7 +6,7 @@ import BleWidgetCore
 
 /// The Prospector dongle's Radii screen (carrefinho/prospector-zmk-module, layouts/radii) at
 /// 280×240, in its default blue theme: a layer wheel and name on the left panel, modifiers, the BLE
-/// profile and a battery ring per half on the right. SF Compressed stands in for its PPF font.
+/// profile and a battery ring per half on the right.
 public final class RadiiScreen: NSView, KeyboardScreen {
     public static let id = "prospector-radii"
     public static let displayName = "Prospector: Radii"
@@ -89,18 +89,6 @@ public final class RadiiScreen: NSView, KeyboardScreen {
         static let modInactive = NSColor(hex: 0x0C2B65)
     }
 
-    private enum Fonts {
-        /// PPF Narrow Thin 64.
-        static let ppfNarrowThin: NSFont = {
-            if #available(macOS 13.0, *) {
-                return .systemFont(ofSize: 58, weight: .ultraLight, width: .compressed)
-            }
-            return .systemFont(ofSize: 52, weight: .ultraLight)
-        }()
-        /// The Symbols font's digits, semibold 28.
-        static let profile = NSFont.systemFont(ofSize: 23, weight: .semibold)
-    }
-
     public override func draw(_ dirtyRect: NSRect) {
         ScreenDrawing.fill(bounds, radius: 12, .black)
         drawLeftPanel()
@@ -130,33 +118,30 @@ public final class RadiiScreen: NSView, KeyboardScreen {
         Theme.wheel.setStroke()
         path.stroke()
 
-        let style = NSMutableParagraphStyle()
-        style.lineBreakMode = .byWordWrapping
-        style.lineHeightMultiple = 0.85
-        let name = NSAttributedString(
-            string: state.layerName.uppercased(),
-            attributes: [.font: Fonts.ppfNarrowThin, .foregroundColor: Theme.layerText, .paragraphStyle: style])
-        name.draw(with: NSRect(x: 14, y: 80, width: 148, height: 150), options: [.usesLineFragmentOrigin])
+        let font = LVGLFont.ppfNarrowThin64
+        for (i, line) in font.wrap(state.layerName.uppercased(), width: 148).enumerated() {
+            font.draw(line, at: NSPoint(x: 14, y: 80 + CGFloat(i) * font.lineHeight), Theme.layerText)
+        }
     }
 
-    /// modifier_indicator.c: a 108-wide panel ending at y 178, symbols two by two at (14, 27),
-    /// (50, 27), (14, 64) and (50, 64) from its top.
+    /// modifier_indicator.c: a 108-wide panel ending at y 178, Symbols Semibold 32 labels two by two
+    /// at (14, 27), (50, 27), (14, 64) and (50, 64) from its top.
     private func drawModifiers() {
         let top = CGFloat(panelTop.value())
         ScreenDrawing.fill(NSRect(x: 172, y: top, width: 108, height: 178 - top), radius: 24, Theme.modPanel)
         let positions: [(CGFloat, CGFloat)] = [(14, 27), (50, 27), (14, 64), (50, 64)]
         for (modifier, (x, y)) in zip(ProspectorModifier.all(state), positions) {
-            let cell = NSRect(x: 172 + x, y: top + y, width: 34, height: 33)
             let color = modifier.color(held: Theme.modActive, idle: Theme.modInactive)
-            ScreenDrawing.symbol(modifier.symbol, size: 27, weight: .semibold, color, centredIn: cell)
+            LVGLFont.symbolsSemibold32.draw(modifier.symbol, at: NSPoint(x: 172 + x, y: top + y), color)
         }
     }
 
-    /// output.c: 108×30 top right; the waves at (19, -1) and the number at (54, 1), 30×30 each.
+    /// output.c: 108×30 top right; 30×30 labels for the waves at (19, -1) and the number, in
+    /// Symbols Semibold 28, at (54, 1).
     private func drawBadge() {
-        badge.drawWaves(in: NSRect(x: 172 + 19, y: -1, width: 30, height: 30), size: 23)
-        let number = ScreenDrawing.text(badge.number, Fonts.profile, badge.numberColor)
-        ScreenDrawing.draw(number, centredIn: NSRect(x: 172 + 54, y: 1, width: 30, height: 30))
+        badge.drawWaves(in: NSRect(x: 172 + 19, y: -1, width: 30, height: 30))
+        LVGLFont.symbolsSemibold28.draw(
+            badge.number, centredAcross: NSRect(x: 172 + 54, y: 1, width: 30, height: 30), badge.numberColor)
     }
 
     /// battery_circles.c, two peripherals: a 108×62 panel at (172, 178) with 30-wide rings 6 thick,

@@ -79,30 +79,27 @@ public final class FieldScreen: NSView, KeyboardScreen {
 
     // MARK: - Drawing
 
-    private enum Fonts {
-        /// FRAC Regular 36 and 30.
-        static let frac36 = NSFont.systemFont(ofSize: 33, weight: .regular)
-        static let frac30 = NSFont.monospacedDigitSystemFont(ofSize: 27, weight: .regular)
-        /// Foundry Gridnik Medium 26.
-        static let gridnik26 = NSFont.monospacedSystemFont(ofSize: 21, weight: .medium)
-    }
-
     /// The grid's top-left on screen: 274×206, centred.
     private static let origin = NSPoint(x: 3, y: 17)
 
     public override func draw(_ dirtyRect: NSRect) {
         ScreenDrawing.fill(bounds, radius: 12, .black)
 
-        // layer_label.c and battery_label.c: top-left at (9, 14) and bottom-left 9 in, 20 up.
-        let layer = ScreenDrawing.text(state.connected ? state.layerName : "", Fonts.frac36, .white)
-        let battery = ScreenDrawing.text(batteryText, Fonts.frac30, .white, kern: -1)
-        layer.draw(at: NSPoint(x: 9, y: 14))
-        battery.draw(at: NSPoint(x: 9, y: 220 - battery.size().height))
+        // layer_label.c and battery_label.c: FRAC Regular 36 top-left at (9, 14) and FRAC Regular 30
+        // (letter spacing -1) bottom-left 9 in, 20 up.
+        let layer = state.connected ? state.layerName : ""
+        let battery = batteryText
+        let layerFont = LVGLFont.fracRegular36
+        let batteryFont = LVGLFont.fracRegular30
+        layerFont.draw(layer, at: NSPoint(x: 9, y: 14), .white)
+        batteryFont.draw(battery, at: NSPoint(x: 9, y: 220 - batteryFont.lineHeight), .white, letterSpace: -1)
 
         // Cells under the labels, the modifiers (column 7, rows 2-5) and the profile stay empty.
         var excluded = Set<Int>()
-        for col in 0..<Self.coveredColumns(layer.size().width) { excluded.insert(col) }
-        for col in 0..<Self.coveredColumns(battery.size().width) { excluded.insert(5 * 8 + col) }
+        for col in 0..<Self.coveredColumns(layerFont.width(layer)) { excluded.insert(col) }
+        for col in 0..<Self.coveredColumns(batteryFont.width(battery, letterSpace: -1)) {
+            excluded.insert(5 * 8 + col)
+        }
         for row in 2...5 { excluded.insert(row * 8 + 7) }
         if badge.visible {
             excluded.formUnion([8, 9])
@@ -146,26 +143,30 @@ public final class FieldScreen: NSView, KeyboardScreen {
         context.restoreGState()
     }
 
-    /// modifier_indicator.c: one symbol centred in each grid cell of column 7, rows 2-5.
+    /// modifier_indicator.c: one Symbols Regular 28 glyph centred in each grid cell of column 7,
+    /// rows 2-5.
     private func drawModifiers() {
         for (i, modifier) in ProspectorModifier.all(state).enumerated() {
             let cx = Self.origin.x + CGFloat(FlowLines.centre(of: 7))
             let cy = Self.origin.y + CGFloat(FlowLines.centre(of: 2 + i))
             let cell = NSRect(x: cx - 17, y: cy - 17, width: 34, height: 34)
             let color = modifier.color(held: .white, idle: NSColor(hex: 0x404040))
-            ScreenDrawing.symbol(modifier.symbol, size: 23, color, centredIn: cell)
+            LVGLFont.symbolsRegular28.draw(modifier.symbol, centredIn: cell, color)
         }
     }
 
-    /// output.c: 68×34 on black at (4, 52); the waves at (8, 3), the number right-aligned 5 in.
+    /// output.c: 68×34 on black at (4, 52); the waves in a 30×30 label at (8, 3), the number in
+    /// Gridnik 26 right-centred 5 in and 4 down.
     private func drawBadge() {
         let frame = NSRect(x: 4, y: 52, width: 68, height: 34)
         NSColor.black.setFill()
         frame.fill()
-        badge.drawWaves(in: NSRect(x: frame.minX + 8, y: frame.minY + 3, width: 30, height: 30), size: 23)
-        let number = ScreenDrawing.text(badge.number, Fonts.gridnik26, badge.numberColor)
-        let size = number.size()
-        number.draw(at: NSPoint(x: frame.maxX - 5 - size.width, y: frame.midY - size.height / 2 + 4))
+        badge.drawWaves(in: NSRect(x: frame.minX + 8, y: frame.minY + 3, width: 30, height: 30))
+        let font = LVGLFont.gridnikMedium26
+        let size = font.size(badge.number)
+        let origin = NSPoint(
+            x: frame.maxX - 5 - size.width, y: frame.minY + ((frame.height - size.height) / 2).rounded(.down) + 4)
+        font.draw(badge.number, at: origin, badge.numberColor)
     }
 }
 

@@ -4,8 +4,8 @@
 import AppKit
 import BleWidgetCore
 
-/// One modifier slot as the Prospector layouts draw it, with the module's defaults: Mac symbols in
-/// GACS order (Command, Option, Control, Shift), inactive ones dimmed. Shift turns filled during
+/// One modifier slot as the Prospector layouts draw it, with the module's defaults: Mac symbols
+/// (glyphs in its Symbols fonts) in GACS order, inactive ones dimmed. Shift turns filled during
 /// Caps Word, as on the dongle; Caps Lock (which the dongle doesn't show) swaps in the Caps Lock key.
 struct ProspectorModifier {
     enum Look {
@@ -24,15 +24,15 @@ struct ProspectorModifier {
         }
         let shift: ProspectorModifier
         if on, state.capsLock {
-            shift = ProspectorModifier(symbol: "capslock.fill", look: .capsLock)
+            shift = ProspectorModifier(symbol: ProspectorSymbol.capsLock, look: .capsLock)
         } else if on, state.capsWord {
-            shift = ProspectorModifier(symbol: "shift.fill", look: .held)
+            shift = ProspectorModifier(symbol: ProspectorSymbol.shiftFilled, look: .held)
         } else {
-            shift = slot("shift", state.shiftActive)
+            shift = slot(ProspectorSymbol.shift, state.shiftActive)
         }
         return [
-            slot("command", state.commandActive), slot("option", state.optionActive),
-            slot("control", state.controlActive), shift,
+            slot(ProspectorSymbol.command, state.commandActive), slot(ProspectorSymbol.option, state.optionActive),
+            slot(ProspectorSymbol.control, state.controlActive), shift,
         ]
     }
 
@@ -117,8 +117,9 @@ final class ProfileBadge {
 
     var numberColor: NSColor { look == .sending ? .white : NSColor(hex: 0xA0A0A0) }
 
-    /// Draws the waves symbol centred in `rect`: bold and 2 lower while sending, as in output.c.
-    func drawWaves(in rect: NSRect, size: CGFloat) {
+    /// Draws the waves symbol in its 30×30 label at `rect`: Symbols Bold 26 and 2 lower while
+    /// sending, Regular 28 otherwise, as in output.c.
+    func drawWaves(in rect: NSRect) {
         let look = self.look
         let color: NSColor
         switch look {
@@ -128,9 +129,10 @@ final class ProfileBadge {
         case .unpaired: color = NSColor(hex: 0x454545)
         }
         let sending = look == .sending
-        ScreenDrawing.symbol(
-            "wave.3.up", size: sending ? size * 0.93 : size, weight: sending ? .bold : .regular, color,
-            centredIn: rect.offsetBy(dx: 0, dy: sending ? 2 : 0), alpha: look == .searching ? breath : 1)
+        let font = sending ? LVGLFont.symbolsBold26 : LVGLFont.symbolsRegular28
+        font.draw(
+            ProspectorSymbol.wavesUp, centredAcross: rect.offsetBy(dx: 0, dy: sending ? 2 : 0), color,
+            alpha: look == .searching ? breath : 1)
     }
 
     /// The searching symbol's opacity: 155 to 255 and back each second, eased.

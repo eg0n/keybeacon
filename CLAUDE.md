@@ -56,10 +56,12 @@ theme, so containers have no padding and rollers no extra line spacing. Shared p
 `ProspectorShared.swift` (modifier symbols, the waves-and-profile badge); `Tween` and `FrameTimer`
 in `ScreenDrawing.swift` drive animations.
 
-Its fonts are LVGL bitmaps. Either pick a close system font (most screens do, as several faces are
-commercial) or draw the firmware's own: add the font file to `FONTS` in
-`scripts/prospector_assets.py`, run it against a module checkout, and draw with `LVGLFont`
-(Crystal does this). The script also regenerates `CrystalFrames.swift`; don't edit its outputs.
+Draw text with the firmware's own fonts so screens match the dongle: add the LVGL font file to
+`FONTS` in `scripts/prospector_assets.py`, run it (`python3 scripts/prospector_assets.py
+<prospector-zmk-module> <lvgl>`; LVGL is `modules/lib/gui/lvgl` in a Zephyr workspace), and draw
+with `LVGLFont`, which places glyphs as LVGL labels do (top-aligned, kerned, whole-pixel advances).
+Symbol glyphs are in `ProspectorSymbol` and `MaterialIcon`. The script also regenerates
+`CrystalFrames.swift`; don't edit its outputs.
 
 ### Adding a data field
 

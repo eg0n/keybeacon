@@ -46,7 +46,7 @@ The [Prospector](https://github.com/carrefinho/prospector-zmk-module) dongle's s
 redrawn at their 280×240 size from KBP data: carrefinho's **Operator**, **Classic**, **Radii** and
 **Field**, and the **Crystal** layout from [our fork](https://github.com/eg0n/prospector-zmk-module).
 Choose one under **Display Mode**; with **On Desktop** the panel sits behind your windows like a
-desktop widget.
+desktop widget. Text and icons use the firmware's own bitmap fonts, glyph for glyph.
 
 #### Operator
 
@@ -78,7 +78,7 @@ desktop widget.
 - **Radii**: a layer wheel and name, the modifiers, and battery rings, in the module's blue theme.
 - **Field**: a grid of lines that flow faster and brighter as you type and settle when you stop.
 - **Crystal**: WPM, output, a modifier grid with Caps Word (green) and Caps Lock (magenta), the
-  turning crystal, batteries and the layer, drawn with the firmware's own pixel font and icons.
+  turning crystal, batteries and the layer.
 - On Classic, Radii and Field the BLE profile (numbered from 0, as on the dongle) shows while BLE
   is the output and for 3 seconds after a change; Caps Lock, which the dongle doesn't show there,
   turns Shift into a red Caps Lock key.
@@ -361,7 +361,7 @@ or app may implement it.
 
 [Prospector](https://github.com/carrefinho/prospector-zmk-module) 接收器的状态屏,按其 280×240 尺寸用
 KBP 数据重绘:carrefinho 的 **Operator**、**Classic**、**Radii**、**Field**,以及
-[本分支固件](https://github.com/eg0n/prospector-zmk-module)的 **Crystal**。在**显示模式**中选择;勾选**置于桌面**后面板位于所有窗口之下,像桌面小组件。
+[本分支固件](https://github.com/eg0n/prospector-zmk-module)的 **Crystal**。在**显示模式**中选择;勾选**置于桌面**后面板位于所有窗口之下,像桌面小组件。文字与图标使用固件自带的位图字体,逐字形一致。
 
 #### Operator
 
@@ -388,7 +388,7 @@ KBP 数据重绘:carrefinho 的 **Operator**、**Classic**、**Radii**、**Field
 - **Classic**:层滚轮、右侧一列修饰键、每半一条电量条(离线时为红叉)。KBP 只发送当前层的名字,滚轮会随层名出现逐步补全相邻层。
 - **Radii**:层转盘与层名、修饰键、电量圆环,采用模块的蓝色主题。
 - **Field**:一格格短线,打字越快流动越快越亮,停下后慢慢平复。
-- **Crystal**:WPM、输出、修饰键网格(Caps Word 绿、Caps Lock 品红)、旋转的水晶、电量与层名,使用固件自带的像素字体与图标。
+- **Crystal**:WPM、输出、修饰键网格(Caps Word 绿、Caps Lock 品红)、旋转的水晶、电量与层名。
 - Classic、Radii、Field 上,BLE 为输出时以及切换后 3 秒内显示 BLE profile(与接收器一致,从 0 编号);接收器在这几屏不显示 Caps Lock,这里把 Shift 换成红色的 Caps Lock 键。
 
 渲染图由 `swift run screen-preview` 生成。新增一个状态屏只需一个文件加一行注册;做法见 [CLAUDE.md](CLAUDE.md)。

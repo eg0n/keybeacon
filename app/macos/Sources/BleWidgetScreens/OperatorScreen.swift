@@ -6,8 +6,7 @@ import BleWidgetCore
 
 /// The Prospector dongle's Operator screen (carrefinho/prospector-zmk-module, layouts/operator) at
 /// its 280×240 size: modifiers, a 26-bar WPM meter, layer segments, a battery ring per half, output
-/// and profiles. Positions, colours and WPM easing are the firmware's; SF stands in for its
-/// Gridnik, FRAC and DINish fonts.
+/// and profiles. Positions, colours, fonts and WPM easing are the firmware's.
 public final class OperatorScreen: NSView, KeyboardScreen {
     public static let id = "prospector-operator"
     public static let displayName = "Prospector: Operator"
@@ -119,22 +118,6 @@ public final class OperatorScreen: NSView, KeyboardScreen {
         static let slotEmpty = NSColor(hex: 0x4A4C58)
     }
 
-    private enum Fonts {
-        /// Foundry Gridnik Medium 20.
-        static let gridnik = NSFont.monospacedSystemFont(ofSize: 16, weight: .medium)
-        /// FRAC Medium 32.
-        static let frac = NSFont.monospacedDigitSystemFont(ofSize: 30, weight: .medium)
-        /// DINish Expanded Light 36.
-        static let dinishExpandedLight: NSFont = {
-            if #available(macOS 13.0, *) {
-                return .systemFont(ofSize: 29, weight: .light, width: .expanded)
-            }
-            return .systemFont(ofSize: 30, weight: .light)
-        }()
-        /// DINish Medium 24.
-        static let dinishMedium = NSFont.monospacedDigitSystemFont(ofSize: 17, weight: .semibold)
-    }
-
     public override func draw(_ dirtyRect: NSRect) {
         ScreenDrawing.fill(bounds, radius: 12, .black)
         drawModifiers()
@@ -144,7 +127,8 @@ public final class OperatorScreen: NSView, KeyboardScreen {
         drawOutput()
     }
 
-    /// modifier_indicator.c: four labels and three 2×24 separators spread across 230×24 at (25, 8).
+    /// modifier_indicator.c: four Gridnik 20 labels and three 2×24 separators spread across 230×24
+    /// at (25, 8).
     /// SHFT is amber during Caps Word, as on the dongle, and red while the host's Caps Lock is on.
     private func drawModifiers() {
         let frame = NSRect(x: 25, y: 8, width: 230, height: 24)
@@ -152,7 +136,8 @@ public final class OperatorScreen: NSView, KeyboardScreen {
             ("CMD", state.commandActive), ("OPT", state.optionActive), ("CTRL", state.controlActive),
             ("SHFT", state.shiftActive),
         ]
-        let widths = mods.map { ScreenDrawing.text($0.0, Fonts.gridnik, .white).size().width }
+        let font = LVGLFont.gridnikMedium20
+        let widths = mods.map { font.width($0.0) }
         let gap = (frame.width - widths.reduce(0, +) - 3 * 2) / 6
         var x = frame.minX
         for (i, (title, held)) in mods.enumerated() {
@@ -162,8 +147,8 @@ public final class OperatorScreen: NSView, KeyboardScreen {
             } else if title == "SHFT", state.capsWord {
                 color = Palette.modCapsWord
             }
-            let label = ScreenDrawing.text(title, Fonts.gridnik, color)
-            label.draw(at: NSPoint(x: x, y: frame.midY - label.size().height / 2))
+            let y = frame.minY + ((frame.height - font.lineHeight) / 2).rounded(.towardZero)
+            font.draw(title, at: NSPoint(x: x, y: y), color)
             x += widths[i] + gap
             if i < mods.count - 1 {
                 Palette.modSeparator.setFill()
@@ -190,25 +175,28 @@ public final class OperatorScreen: NSView, KeyboardScreen {
             ScreenDrawing.fill(marker, radius: 1, Palette.wpmPeak)
         }
 
-        // The WPM, padded 6×4 on black, aligned top-left with a (-7, -9) offset.
-        let wpm = ScreenDrawing.text("\(Int(displayedWPM + 0.5))", Fonts.frac, Palette.wpmBarActive)
-        let wpmSize = wpm.size()
+        // The WPM in FRAC Medium 32, padded 6×4 on black, aligned top-left with a (-7, -9) offset.
+        let wpm = "\(Int(displayedWPM + 0.5))"
+        let wpmFont = LVGLFont.fracMedium32
+        let wpmSize = wpmFont.size(wpm)
         let wpmBox = NSRect(
             x: meter.minX - 7, y: meter.minY - 9, width: wpmSize.width + 12, height: wpmSize.height + 8)
         NSColor.black.setFill()
         wpmBox.fill()
-        wpm.draw(at: NSPoint(x: wpmBox.minX + 6, y: wpmBox.minY + 4))
+        wpmFont.draw(wpm, at: NSPoint(x: wpmBox.minX + 6, y: wpmBox.minY + 4), Palette.wpmBarActive)
 
-        // The layer name, padded 8 / 7 top / 3 bottom on black, bottom-right with a (9, 7) offset.
+        // The layer name in DINish Expanded Light 36, padded 8 / 7 top / 3 bottom on black,
+        // bottom-right with a (9, 7) offset.
         guard state.connected, !state.layerName.isEmpty else { return }
-        let name = ScreenDrawing.text(state.layerName.uppercased(), Fonts.dinishExpandedLight, .white)
-        let nameSize = name.size()
+        let name = state.layerName.uppercased()
+        let nameFont = LVGLFont.dinishExpandedLight36
+        let nameSize = nameFont.size(name)
         let nameBox = NSRect(
             x: meter.maxX + 9 - nameSize.width - 16, y: meter.maxY + 7 - nameSize.height - 10,
             width: nameSize.width + 16, height: nameSize.height + 10)
         NSColor.black.setFill()
         nameBox.fill()
-        name.draw(at: NSPoint(x: nameBox.minX + 8, y: nameBox.minY + 7))
+        nameFont.draw(name, at: NSPoint(x: nameBox.minX + 8, y: nameBox.minY + 7), .white)
     }
 
     /// layer_display.c: one 6-high segment per layer across 260 at (10, 142), 3 between.
@@ -243,8 +231,8 @@ public final class OperatorScreen: NSView, KeyboardScreen {
 
             let box = NSRect(x: origin.x, y: origin.y, width: 25, height: 25)
             ScreenDrawing.fill(box, radius: 2, fill)
-            let label = ScreenDrawing.text(online && level > 0 ? "\(level)" : "-", Fonts.dinishMedium, .black, kern: -1)
-            ScreenDrawing.draw(label, centredIn: box)
+            LVGLFont.dinishMedium24.draw(
+                online && level > 0 ? "\(level)" : "-", centredIn: box, .black, letterSpace: -1)
         }
     }
 
@@ -275,7 +263,7 @@ public final class OperatorScreen: NSView, KeyboardScreen {
                 textColor = .black
             }
             if count <= 5 {
-                ScreenDrawing.draw(ScreenDrawing.text("\(i + 1)", Fonts.gridnik, textColor), centredIn: slot)
+                LVGLFont.gridnikMedium20.draw("\(i + 1)", centredIn: slot, textColor)
             }
         }
     }
@@ -286,6 +274,6 @@ public final class OperatorScreen: NSView, KeyboardScreen {
         } else {
             ScreenDrawing.outline(rect, radius: 6, width: 2, off)
         }
-        ScreenDrawing.draw(ScreenDrawing.text(title, Fonts.gridnik, active ? .black : off), centredIn: rect)
+        LVGLFont.gridnikMedium20.draw(title, centredIn: rect, active ? .black : off)
     }
 }
