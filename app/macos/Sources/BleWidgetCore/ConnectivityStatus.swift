@@ -134,8 +134,11 @@ public struct ConnectivityStatus: Equatable {
     public let splitFlags: SplitLinkFlags
     public let output: OutputEndpoint
     public let chargingFlags: ChargingFlags
-    /// How many bytes beyond offset 6 were present in the raw payload and
-    /// discarded (invariant C-C2). Useful for diagnostics.
+    /// KBP 1.3 byte 7: bit n set = profile n+1 has no bonded host. `nil` from a
+    /// KBP 1.1 keyboard, whose payload ends at byte 6.
+    public let openProfiles: UInt8?
+    /// How many bytes beyond KBP 1.1's seven were present (invariant C-C2);
+    /// byte 7, if any, is `openProfiles`. Useful for diagnostics.
     public let trailingBytesIgnored: Int
 
     public init(
@@ -145,6 +148,7 @@ public struct ConnectivityStatus: Equatable {
         splitFlags: SplitLinkFlags,
         output: OutputEndpoint,
         chargingFlags: ChargingFlags,
+        openProfiles: UInt8? = nil,
         trailingBytesIgnored: Int = 0
     ) {
         self.capability = capability
@@ -153,6 +157,7 @@ public struct ConnectivityStatus: Equatable {
         self.splitFlags = splitFlags
         self.output = output
         self.chargingFlags = chargingFlags
+        self.openProfiles = openProfiles
         self.trailingBytesIgnored = trailingBytesIgnored
     }
 
@@ -167,6 +172,7 @@ public struct ConnectivityStatus: Equatable {
             splitFlags: SplitLinkFlags(fromByte: bytes[4]),
             output: OutputEndpoint(fromByte: bytes[5]),
             chargingFlags: ChargingFlags(fromByte: bytes[6]),
+            openProfiles: data.count >= 8 ? data[data.startIndex + 7] : nil,
             trailingBytesIgnored: data.count - 7
         )
     }

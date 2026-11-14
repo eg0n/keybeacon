@@ -18,7 +18,19 @@ final class ActivityStatusTests: XCTestCase {
         XCTAssertNil(ActivityStatus.parse(from: Data([63])))
     }
 
+    func testParse_NoFlagsByte_CapsOff() {
+        let status = ActivityStatus.parse(from: Data([0, 3]))
+        XCTAssertEqual(status?.capsWord, false)
+        XCTAssertEqual(status?.capsLock, false)
+    }
+
+    func testParse_Flags_CapsWordAndLock() {
+        XCTAssertEqual(ActivityStatus.parse(from: Data([0, 3, 0x01]))?.capsWord, true)
+        XCTAssertEqual(ActivityStatus.parse(from: Data([0, 3, 0x02]))?.capsLock, true)
+        XCTAssertEqual(ActivityStatus.parse(from: Data([0, 3, 0x02]))?.capsWord, false)
+    }
+
     func testParse_TailIsIgnored() {
-        XCTAssertEqual(ActivityStatus.parse(from: Data([0, 3, 0xAA, 0xBB])), ActivityStatus(wpm: 0, layerCount: 3))
+        XCTAssertEqual(ActivityStatus.parse(from: Data([0, 3, 0x00, 0xBB])), ActivityStatus(wpm: 0, layerCount: 3))
     }
 }

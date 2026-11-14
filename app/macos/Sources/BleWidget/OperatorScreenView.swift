@@ -21,10 +21,14 @@ final class OperatorScreenView: NSView {
     private var layerName = ""
     private var mods: [Bool] = [false, false, false, false] // CMD OPT CTRL SHFT
     private var layerCount = 0
+    private var capsWord = false
+    private var capsLock = false
     private var halves: [(online: Bool, level: Int?)] = [(false, nil), (false, nil)]
     private var outputIsUSB: Bool?
     private var profileIndex = 0 // 1-based; 0 = unknown
     private var profileCount = 0
+    private var activeProfileOpen = false
+    private var openProfiles: UInt8? // bit n = profile n+1 has no bonded host
 
     // WPM meter, as in wpm_meter.c: ease towards the target every 33 ms, a peak that holds for
     // 90 frames, then drops a bar every 18.
@@ -82,6 +86,8 @@ final class OperatorScreenView: NSView {
         if capability.hasProfile {
             profileIndex = Int(connectivity.profile.index)
             profileCount = Int(connectivity.profile.maxSlots)
+            activeProfileOpen = connectivity.profile.isOpen
+            openProfiles = connectivity.openProfiles
         }
         needsDisplay = true
     }
@@ -103,6 +109,8 @@ final class OperatorScreenView: NSView {
 
     func update(activity: ActivityStatus) {
         layerCount = Int(activity.layerCount)
+        capsWord = activity.capsWord
+        capsLock = activity.capsLock
         setWPM(Double(activity.wpm ?? 0))
         needsDisplay = true
     }
@@ -155,6 +163,8 @@ final class OperatorScreenView: NSView {
         static let modActive = NSColor(hex: 0xB1E5F0)
         static let modInactive = NSColor(hex: 0x3B527C)
         static let modSeparator = NSColor(hex: 0x606060)
+        static let modCapsWord = NSColor(hex: 0xFFBF00)
+        static let modCapsLock = NSColor(hex: 0xE5484D)
         static let wpmBarActive = NSColor(hex: 0xC2526A)
         static let wpmBarInactive = NSColor(hex: 0x242424)
         static let wpmPeak = NSColor(hex: 0x505050)
@@ -173,6 +183,7 @@ final class OperatorScreenView: NSView {
         static let bleInactive = NSColor(hex: 0x353F40)
         static let slotActive = NSColor(hex: 0x7B7D93)
         static let slotInactive = NSColor(hex: 0x353640)
+        static let slotEmpty = NSColor(hex: 0x4A4C58)
     }
 
     private enum Fonts {
@@ -202,6 +213,7 @@ final class OperatorScreenView: NSView {
     }
 
     /// modifier_indicator.c: four labels and three 2×24 separators spread across 230×24 at (25, 8).
+    /// SHFT is amber during Caps Word, as on the dongle, and red while the host's Caps Lock is on.
     private func drawModifiers() {
         let frame = NSRect(x: 25, y: 8, width: 230, height: 24)
         let titles = ["CMD", "OPT", "CTRL", "SHFT"]
@@ -209,7 +221,13 @@ final class OperatorScreenView: NSView {
         let gap = (frame.width - widths.reduce(0, +) - 3 * 2) / 6
         var x = frame.minX
         for (i, title) in titles.enumerated() {
-            let label = text(title, Fonts.gridnik, mods[i] ? Palette.modActive : Palette.modInactive)
+            var color = mods[i] ? Palette.modActive : Palette.modInactive
+            if i == 3, capsLock {
+                color = Palette.modCapsLock
+            } else if i == 3, capsWord {
+                color = Palette.modCapsWord
+            }
+            let label = text(title, Fonts.gridnik, color)
             label.draw(at: NSPoint(x: x, y: frame.midY - label.size().height / 2))
             x += widths[i] + gap
             if i < 3 {
@@ -314,7 +332,8 @@ final class OperatorScreenView: NSView {
     }
 
     /// output.c: USB and BLE toggles 56×29 at (148, 170), filled when active and outlined when not,
-    /// over one 29-high slot per BLE profile, the active profile's lit.
+    /// over one 29-high slot per BLE profile, the active profile's lit. A profile with no host
+    /// bonded is an outline instead, in the active colour while it waits to pair.
     private func drawOutput() {
         drawToggle("USB", rect: NSRect(x: 148, y: 170, width: 56, height: 29), active: outputIsUSB == true,
                    on: Palette.usbActive, off: Palette.usbInactive)
@@ -325,10 +344,22 @@ final class OperatorScreenView: NSView {
         let width = (116 - CGFloat(profileCount - 1) * 2) / CGFloat(profileCount)
         for i in 0..<profileCount {
             let rect = NSRect(x: 148 + CGFloat(i) * (width + 2), y: 203, width: width, height: 29)
-            (i + 1 == profileIndex ? Palette.slotActive : Palette.slotInactive).setFill()
-            NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6).fill()
+            let active = i + 1 == profileIndex
+            let open = (openProfiles.map { $0 & (1 << i) != 0 } ?? false) || (active && activeProfileOpen)
+            let textColor: NSColor
+            if open {
+                let outline = NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 5, yRadius: 5)
+                outline.lineWidth = 2
+                textColor = active ? Palette.slotActive : Palette.slotEmpty
+                textColor.setStroke()
+                outline.stroke()
+            } else {
+                (active ? Palette.slotActive : Palette.slotInactive).setFill()
+                NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6).fill()
+                textColor = .black
+            }
             if profileCount <= 5 {
-                let label = text("\(i + 1)", Fonts.gridnik, .black)
+                let label = text("\(i + 1)", Fonts.gridnik, textColor)
                 let size = label.size()
                 label.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2))
             }
