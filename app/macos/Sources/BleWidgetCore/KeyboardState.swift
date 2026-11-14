@@ -22,6 +22,9 @@ public struct KeyboardState: Equatable {
     public var layerIndex: UInt8 = 0
     /// The keymap's name for the layer, or "L<index>" when it has none.
     public var layerName = ""
+    /// Every layer name seen so far, by index: KBP reports only the active layer's, so screens that
+    /// show other layers learn them as they come up.
+    public var layerNames: [UInt8: String] = [:]
     /// Held modifiers, in the HID modifier byte's layout (KBP §4.1).
     public var mods: UInt8 = 0
     public var layerCount: UInt8?
@@ -59,8 +62,11 @@ public struct KeyboardStateStore {
 
     public init() {}
 
+    /// Forgets everything but the layer names, which belong to the keymap and outlast a disconnect.
     public mutating func reset() {
+        let names = state.layerNames
         state = KeyboardState()
+        state.layerNames = names
     }
 
     public mutating func apply(_ status: KeyboardStatus) {
@@ -68,6 +74,7 @@ public struct KeyboardStateStore {
         state.connected = true
         state.layerIndex = status.layerIndex
         state.layerName = status.layerName
+        state.layerNames[status.layerIndex] = status.layerName
         state.mods = status.mods
     }
 

@@ -26,7 +26,11 @@ public protocol KeyboardScreen: NSView {
 public enum ScreenRegistry {
     /// Every screen, in Display Mode menu order.
     public static let all: [KeyboardScreen.Type] = [
-        OperatorScreen.self
+        OperatorScreen.self,
+        ClassicScreen.self,
+        RadiiScreen.self,
+        FieldScreen.self,
+        CrystalScreen.self,
     ]
 
     public static func screen(id: String) -> KeyboardScreen.Type? {

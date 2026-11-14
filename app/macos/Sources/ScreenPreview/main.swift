@@ -14,6 +14,8 @@ func sample(_ edit: (inout KeyboardState) -> Void) -> KeyboardState {
     state.connected = true
     state.layerIndex = 0
     state.layerName = "Base"
+    let names = ["Base", "Extra", "Tap", "Button", "Nav", "Mouse", "Media", "Num", "Sym", "Fun"]
+    state.layerNames = Dictionary(uniqueKeysWithValues: names.enumerated().map { (UInt8($0), $1) })
     state.layerCount = 10
     state.wpm = 0
     state.isSplit = true

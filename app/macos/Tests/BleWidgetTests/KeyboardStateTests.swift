@@ -26,6 +26,15 @@ final class KeyboardStateTests: XCTestCase {
         XCTAssertEqual(store.state, KeyboardState())
     }
 
+    func testStatus_LayerNamesOutlastDisconnect() {
+        var store = KeyboardStateStore()
+        store.apply(KeyboardStatus.parse(Data([4, 0]) + "Nav".data(using: .utf8)!)!)
+        store.apply(KeyboardStatus.parse(Data([0, 0]) + "Base".data(using: .utf8)!)!)
+        store.apply(KeyboardStatus.disconnected)
+        XCTAssertFalse(store.state.connected)
+        XCTAssertEqual(store.state.layerNames, [0: "Base", 4: "Nav"])
+    }
+
     func testConnectivity_DongleLinksOutputAndProfiles() {
         var store = KeyboardStateStore()
         // split + link + profile + output; profile 2 of 4; right half online only; USB; 3 and 4 open

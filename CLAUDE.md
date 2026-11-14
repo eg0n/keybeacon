@@ -11,6 +11,7 @@ pluggable status screens to the macOS app. Firmware side: `eg0n/zmk-keybeacon`, 
 |------|------|
 | `protocol/` | The KeyBeacon Protocol (KBP), English and Chinese halves; `VERSION`, `CHANGELOG.md` |
 | `app/macos/` | Swift package: the menu-bar app (`BleWidget`), its core, screens and preview tool |
+| `app/macos/scripts/` | `prospector_assets.py`: generates screen assets from a prospector-zmk-module checkout |
 | `app/windows/` | Windows app (C#); not maintained in this fork |
 | `conformance/` | Python checklist tool for keyboards (`pytest conformance/tests`) |
 | `packaging/make-app.sh` | Builds `dist/BleWidget.app`, `.zip` and `.dmg` (ad-hoc signed) |
@@ -50,8 +51,15 @@ A screen draws the whole panel from a `KeyboardState`, like a keyboard's status 
    Lock, a half offline, disconnected) to PNGs; look at them.
 
 Porting a Prospector layout (carrefinho/prospector-zmk-module, `layouts/<name>`): take positions,
-sizes and colours from its widgets and `display_colors.h`; its fonts are LVGL bitmaps of
-commercial faces, so pick close system fonts.
+sizes and colours from its widgets and `display_colors.h`. Prospector builds run LVGL without a
+theme, so containers have no padding and rollers no extra line spacing. Shared pieces live in
+`ProspectorShared.swift` (modifier symbols, the waves-and-profile badge); `Tween` and `FrameTimer`
+in `ScreenDrawing.swift` drive animations.
+
+Its fonts are LVGL bitmaps. Either pick a close system font (most screens do, as several faces are
+commercial) or draw the firmware's own: add the font file to `FONTS` in
+`scripts/prospector_assets.py`, run it against a module checkout, and draw with `LVGLFont`
+(Crystal does this). The script also regenerates `CrystalFrames.swift`; don't edit its outputs.
 
 ### Adding a data field
 

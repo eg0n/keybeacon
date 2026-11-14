@@ -17,6 +17,23 @@ public enum ScreenDrawing {
         text.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2))
     }
 
+    /// Draws an SF Symbol in `color`, centred in `rect`; `alpha` fades it.
+    public static func symbol(
+        _ name: String, size: CGFloat, weight: NSFont.Weight = .regular, _ color: NSColor, centredIn rect: NSRect,
+        alpha: CGFloat = 1
+    ) {
+        let config = NSImage.SymbolConfiguration(pointSize: size, weight: weight)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+        guard
+            let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+                .withSymbolConfiguration(config)
+        else { return }
+        let size = image.size
+        let target = NSRect(
+            x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height)
+        image.draw(in: target, from: .zero, operation: .sourceOver, fraction: alpha, respectFlipped: true, hints: nil)
+    }
+
     public static func fill(_ rect: NSRect, radius: CGFloat, _ color: NSColor) {
         color.setFill()
         NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
@@ -47,6 +64,85 @@ public enum ScreenDrawing {
             clockwise: false)
         context.strokePath()
         context.restoreGState()
+    }
+}
+
+/// A value easing from one number to another over time, like an LVGL animation.
+public struct Tween {
+    public enum Curve {
+        case linear, easeOut, easeInOut
+    }
+
+    private var from: Double
+    public private(set) var target: Double
+    private var start = Date.distantPast
+    private var duration: TimeInterval = 0
+    private var curve = Curve.linear
+
+    public init(_ value: Double) {
+        from = value
+        target = value
+    }
+
+    public mutating func animate(to value: Double, over duration: TimeInterval, _ curve: Curve, now: Date = Date()) {
+        from = self.value(at: now)
+        target = value
+        start = now
+        self.duration = duration
+        self.curve = curve
+    }
+
+    public mutating func jump(to value: Double) {
+        from = value
+        target = value
+        duration = 0
+    }
+
+    public func isRunning(at now: Date = Date()) -> Bool {
+        duration > 0 && now.timeIntervalSince(start) < duration
+    }
+
+    public func value(at now: Date = Date()) -> Double {
+        guard isRunning(at: now) else { return target }
+        let t = max(0, now.timeIntervalSince(start) / duration)
+        let eased: Double
+        switch curve {
+        case .linear: eased = t
+        case .easeOut: eased = 1 - (1 - t) * (1 - t)
+        case .easeInOut: eased = t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t)
+        }
+        return from + (target - from) * eased
+    }
+}
+
+/// A repeating timer for a screen's animations; `tick` returns false to stop it.
+public final class FrameTimer {
+    private var timer: Timer?
+    public private(set) var interval: TimeInterval = 0
+
+    public init() {}
+
+    deinit {
+        timer?.invalidate()
+    }
+
+    public var isRunning: Bool { timer != nil }
+
+    public func start(every interval: TimeInterval, _ tick: @escaping () -> Bool) {
+        if timer != nil, interval == self.interval { return }
+        stop()
+        self.interval = interval
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] timer in
+            if !tick() {
+                timer.invalidate()
+                self?.timer = nil
+            }
+        }
+    }
+
+    public func stop() {
+        timer?.invalidate()
+        timer = nil
     }
 }
 
