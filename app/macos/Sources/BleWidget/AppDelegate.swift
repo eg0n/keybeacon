@@ -344,7 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
         applyMinor(minor)
     }
 
-    // IV-X1 / U-5: hide the entire 1.1 card when the keyboard is KBP 1.0.
+    // Hide the entire 1.1 card when the keyboard is KBP 1.0.
     private func applyMinor(_ minor: KBPMinor) {
         switch minor {
         case .onePointZero, .unknown:

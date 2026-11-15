@@ -14,7 +14,7 @@ public enum HostStatusColor: Equatable {
 }
 
 /// Colour and shape for a `LocalHostStatus`; the shape tells states apart without colour (WCAG
-/// 1.4.1). Matches the Windows `HostStatusVisual` and the spec 005 host-status-visual contract.
+/// 1.4.1). Matches the Windows `HostStatusVisual` and the host-status-visual contract.
 public struct HostStatusVisual: Equatable {
 
     /// Abstract palette entry (mapped to a real colour by the UI layer).

@@ -19,10 +19,10 @@ public struct CapabilityMatrix: Equatable {
     public let isSplit: Bool  // bit 0 — CONFIG_ZMK_SPLIT
     public let hasHostConnection: Bool  // bit 1
     public let hasProfile: Bool  // bit 2
-    public let hasSplitLink: Bool  // bit 3 — requires isSplit (IV-C1)
+    public let hasSplitLink: Bool  // bit 3 — requires isSplit
     public let hasOutputEndpoint: Bool  // bit 4
     public let hasLeftCharging: Bool  // bit 5 — overall when !isSplit
-    public let hasRightCharging: Bool  // bit 6 — requires isSplit + hasLeftCharging (IV-C3)
+    public let hasRightCharging: Bool  // bit 6 — requires isSplit + hasLeftCharging
     public let reserved7: Bool  // bit 7 — 1.1 firmware MUST emit 0
 
     public init(
@@ -71,8 +71,8 @@ public struct CapabilityMatrix: Equatable {
         return byte
     }
 
-    /// `hasSplitLink` needs `isSplit` (IV-C1); `hasRightCharging` needs `isSplit && hasLeftCharging`
-    /// (IV-C3). When false, the caller drops the bit and logs `capability.inconsistent` (C-C3, C-C6).
+    /// `hasSplitLink` needs `isSplit`; `hasRightCharging` needs `isSplit && hasLeftCharging`.
+    /// When false, the caller drops the bit and logs `capability.inconsistent`.
     public var isConsistent: Bool {
         if hasSplitLink && !isSplit { return false }
         if hasRightCharging && !isSplit { return false }

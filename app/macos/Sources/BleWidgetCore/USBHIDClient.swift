@@ -126,18 +126,24 @@ public final class USBHIDClient {
         if let battery { handle(.battery, payload: battery) }
         if let status { handle(.status, payload: status) }
         if let activity { handle(.activity, payload: activity) }
-        readLayerNames(count: activity.flatMap(ActivityStatus.parse(from:))?.layerCount ?? 0)
+        let count = activity.flatMap(ActivityStatus.parse(from:))?.layerCount ?? 0
+        DispatchQueue.main.async { [weak self] in
+            self?.readLayerNames(from: 0, count: count, device: device)
+        }
     }
 
-    /// KBP 1.4: every layer's name, by selecting each index and reading it back. Firmware without
-    /// AA6 refuses the selection, which ends it.
-    private func readLayerNames(count: UInt8) {
-        for index in 0..<count {
-            guard writeFeature(.layerName, payload: [index]),
-                let payload = readFeature(.layerName),
-                let layer = LayerName.parse(from: payload), layer.index == index
-            else { return }
-            delegate?.usbClient(self, didReadLayerName: layer)
+    /// KBP 1.4: every layer's name, by selecting each index and reading it back. The transfers
+    /// block, so each layer gets its own turn of the run loop and the UI stays responsive.
+    /// Firmware without AA6 refuses the selection, which ends it.
+    private func readLayerNames(from index: UInt8, count: UInt8, device: IOHIDDevice) {
+        guard index < count, let current = self.device, CFEqual(current, device) else { return }
+        guard writeFeature(.layerName, payload: [index]),
+            let payload = readFeature(.layerName),
+            let layer = LayerName.parse(from: payload), layer.index == index
+        else { return }
+        delegate?.usbClient(self, didReadLayerName: layer)
+        DispatchQueue.main.async { [weak self] in
+            self?.readLayerNames(from: index + 1, count: count, device: device)
         }
     }
 
@@ -148,6 +154,13 @@ public final class USBHIDClient {
         capability = nil
         latestConnectivity = nil
         delegate?.usbClientDidDetach(self)
+
+        // A second keyboard that was plugged in all along takes over.
+        if let manager, let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>,
+            let next = devices.first(where: { !CFEqual($0, device) })
+        {
+            attach(next)
+        }
     }
 
     private func readFeature(_ report: Report) -> Data? {

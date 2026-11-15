@@ -8,9 +8,9 @@ import Foundation
 /// Wire contract: `protocol/README.md` §14.3 and
 /// `specs/001-connectivity-power/contracts/protocol-kbp11.md` §3.
 ///
-/// `parse(from:)` returns `nil` when the payload is shorter than 7 bytes
-/// (invariant C-C1). KBP 1.3 adds byte 7, the open-profile mask; any later
-/// bytes are ignored (invariant C-C2 for MINOR forward-compatibility).
+/// `parse(from:)` returns `nil` when the payload is shorter than 7 bytes.
+/// KBP 1.3 adds byte 7, the open-profile mask; any later bytes are ignored,
+/// so that later minor versions can add to it.
 public struct ConnectivityStatus: Equatable {
 
     /// `host_state` (byte 1): connected flag + last-disconnect reason.
@@ -137,7 +137,7 @@ public struct ConnectivityStatus: Equatable {
     /// KBP 1.3 byte 7: bit n set = profile n+1 has no bonded host. `nil` from a
     /// KBP 1.1 keyboard, whose payload ends at byte 6.
     public let openProfiles: UInt8?
-    /// How many bytes beyond KBP 1.1's seven were present (invariant C-C2);
+    /// How many bytes beyond KBP 1.1's seven were present;
     /// byte 7, if any, is `openProfiles`. Useful for diagnostics.
     public let trailingBytesIgnored: Int
 
