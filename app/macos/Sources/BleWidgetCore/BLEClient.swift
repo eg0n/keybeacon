@@ -397,11 +397,14 @@ public final class BLEClient: NSObject {
         }
         cachedCapability = effective
 
-        // Log connection state changes (host_state.connected bit flip).
-        DiagnosticsLogger.connection.stateChanged(
-            connected: status.link.connected,
-            reasonRaw: status.link.lastDisconnectReason.rawValue
-        )
+        // Log connection state changes (host_state.connected bit flip), not every notify; the first
+        // snapshot after connecting counts as a change.
+        if latestConnectivity?.link.connected != status.link.connected {
+            DiagnosticsLogger.connection.stateChanged(
+                connected: status.link.connected,
+                reasonRaw: status.link.lastDisconnectReason.rawValue
+            )
+        }
 
         // Clamp profile_index > profile_max_slots → diagnostic log; UI is
         // responsible for the clamping of displayed index.
