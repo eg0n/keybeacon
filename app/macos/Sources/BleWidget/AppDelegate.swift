@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     // A keyboard on USB (KBP over USB HID) takes precedence over BLE while attached.
     private let usbClient = USBHIDClient()
     private var usbActive = false
+    // Kept while on USB: this Mac's BLE link can show the BLE host is here (see refreshUsbHostStatus).
+    private var usbHostStatus: LocalHostStatus?
+    private var bleHostStatus: LocalHostStatus?
+    private var bleKeyboard: CompatibleKeyboard?
     private var state: BLEConnectionState = .connecting
     private var activeKeyboard: CompatibleKeyboard?
     private var candidates: [CompatibleKeyboard] = []
@@ -302,7 +306,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     }
 
     func bleClient(_ client: BLEClient, didChangeActiveKeyboard keyboard: CompatibleKeyboard?) {
-        guard !usbActive else { return }
+        bleKeyboard = keyboard
+        guard !usbActive else { return refreshUsbHostStatus() }
         activeKeyboard = keyboard
         if keyboard != nil { unsupportedKeyboards = [] }
         statusItem.button?.toolTip = keyboard?.displayName
@@ -347,8 +352,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     }
 
     func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?) {
-        guard !usbActive else { return }
+        bleHostStatus = status
+        guard !usbActive else { return refreshUsbHostStatus() }
         panel.update(hostStatus: status)
+    }
+
+    /// USB can't see which host a BLE profile is, so trust a BLE link from this Mac to the same
+    /// keyboard (matched by name, as ZMK uses its keyboard name for both) to settle it.
+    private func refreshUsbHostStatus() {
+        guard let usb = usbHostStatus else { return panel.update(hostStatus: nil) }
+        let sameKeyboard = bleKeyboard != nil && bleKeyboard?.name == activeKeyboard?.name
+        panel.update(hostStatus: USBHIDClient.hostStatus(usb, bleLink: sameKeyboard ? bleHostStatus : nil))
     }
 
     func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus) {
@@ -382,6 +396,7 @@ extension AppDelegate: USBHIDClientDelegate {
         statusItem.button?.toolTip = nil
         panel.update(.disconnected)
         panel.markConnectivityStaleOnDisconnect()
+        usbHostStatus = nil
         panel.update(hostStatus: nil)
         buildMenu()
         // Back to BLE, which re-reports whatever it is connected to.
@@ -401,7 +416,8 @@ extension AppDelegate: USBHIDClientDelegate {
     }
 
     func usbClient(_ client: USBHIDClient, didUpdateHostStatus status: LocalHostStatus?) {
-        panel.update(hostStatus: status)
+        usbHostStatus = status
+        refreshUsbHostStatus()
     }
 
     func usbClient(_ client: USBHIDClient, didUpdateActivity status: ActivityStatus) {

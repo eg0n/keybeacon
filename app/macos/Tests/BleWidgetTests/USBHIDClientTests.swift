@@ -78,6 +78,30 @@ final class USBHIDClientTests: XCTestCase {
         )
     }
 
+    func testHostStatus_BleLinkInUseHere_OverridesElsewhere() {
+        XCTAssertEqual(USBHIDClient.hostStatus(.activeElsewhere(slot: 2), bleLink: .inUseHere), .inUseHere)
+    }
+
+    func testHostStatus_BleLinkOnOtherSlot_StaysElsewhere() {
+        XCTAssertEqual(
+            USBHIDClient.hostStatus(.activeElsewhere(slot: 2), bleLink: .activeElsewhere(slot: 2)),
+            .activeElsewhere(slot: 2)
+        )
+    }
+
+    func testHostStatus_NoBleLink_StaysElsewhere() {
+        XCTAssertEqual(USBHIDClient.hostStatus(.activeElsewhere(slot: 2), bleLink: nil), .activeElsewhere(slot: 2))
+        XCTAssertEqual(
+            USBHIDClient.hostStatus(.activeElsewhere(slot: 2), bleLink: .cannotDetermine),
+            .activeElsewhere(slot: 2)
+        )
+    }
+
+    func testHostStatus_BleLinkNeverOverridesUsbOrUnknown() {
+        XCTAssertEqual(USBHIDClient.hostStatus(.inUseHere, bleLink: .activeElsewhere(slot: 1)), .inUseHere)
+        XCTAssertEqual(USBHIDClient.hostStatus(.cannotDetermine, bleLink: .inUseHere), .cannotDetermine)
+    }
+
     // MARK: - Identity
 
     func testStableUUID_IsDeterministicPerKey() {

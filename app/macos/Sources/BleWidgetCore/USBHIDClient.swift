@@ -225,8 +225,8 @@ public final class USBHIDClient {
     }
 
     /// The keyboard is plugged into this Mac, so USB output is typing here. BLE output goes to
-    /// the active profile's host, which this Mac on USB can't tell apart from another computer
-    /// unless it is that profile; the profile slot is shown as elsewhere.
+    /// the active profile's host, which USB alone can't tell apart from another computer; the
+    /// profile slot is shown as elsewhere until `hostStatus(_:bleLink:)` says otherwise.
     public static func hostStatus(for connectivity: ConnectivityStatus) -> LocalHostStatus {
         let capability = connectivity.capability
         guard capability.hasOutputEndpoint else { return .cannotDetermine }
@@ -242,6 +242,16 @@ public final class USBHIDClient {
         default:
             return .cannotDetermine
         }
+    }
+
+    /// `usb` refined by this Mac's own BLE link to the same keyboard, if any. ZMK keeps old hosts
+    /// connected after a profile switch, so only AA4 matching the active profile (`.inUseHere`)
+    /// proves the BLE host is this Mac.
+    public static func hostStatus(_ usb: LocalHostStatus, bleLink: LocalHostStatus?) -> LocalHostStatus {
+        if case .activeElsewhere = usb, bleLink == .inUseHere {
+            return .inUseHere
+        }
+        return usb
     }
 
     // MARK: - Identity
