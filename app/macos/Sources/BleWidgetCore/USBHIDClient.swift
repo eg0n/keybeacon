@@ -238,6 +238,10 @@ public final class USBHIDClient {
             guard capability.hasProfile, profile.index != 0, !profile.isOpen else {
                 return .cannotDetermine
             }
+            // A profile whose host isn't connected is typing nowhere, not on another device.
+            if capability.hasHostConnection, !connectivity.link.connected {
+                return .cannotDetermine
+            }
             return .activeElsewhere(slot: profile.index)
         default:
             return .cannotDetermine

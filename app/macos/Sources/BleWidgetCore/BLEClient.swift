@@ -151,6 +151,13 @@ public final class BLEClient: NSObject {
         attemptConnect()
     }
 
+    /// Drops the connection and connects again, so that every value is read and reported afresh;
+    /// `start()` does nothing while a keyboard is connected.
+    public func restart() {
+        tearDown()
+        attemptConnect()
+    }
+
     /// Explicit user selection from the menu-bar chooser (FR-014/FR-015/FR-016):
     /// persist the choice and switch the single active connection to it.
     public func select(_ identifier: UUID) {
@@ -764,6 +771,12 @@ extension BLEClient: CBPeripheralDelegate {
         didUpdateValueFor characteristic: CBCharacteristic,
         error: Error?
     ) {
+        if error != nil, characteristic.uuid == Self.layerNameCharacteristicUUID {
+            // A failed read costs that one name; the layers after it are still asked for.
+            pendingLayerNames.removeFirst(min(1, pendingLayerNames.count))
+            requestNextLayerName()
+            return
+        }
         guard error == nil, let data = characteristic.value else { return }
         switch characteristic.uuid {
         case Self.characteristicUUID:

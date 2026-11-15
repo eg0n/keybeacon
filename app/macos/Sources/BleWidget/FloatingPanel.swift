@@ -1405,6 +1405,11 @@ final class FloatingPanel: NSPanel {
         renderScreen()
     }
 
+    func forgetLayerNames() {
+        keyboardState.forgetLayerNames()
+        renderScreen()
+    }
+
     func update(_ status: KeyboardStatus) {
         cachedStatus = status
         keyboardState.apply(status)

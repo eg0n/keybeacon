@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     private var usbHostStatus: LocalHostStatus?
     private var bleHostStatus: LocalHostStatus?
     private var bleKeyboard: CompatibleKeyboard?
+    // The keyboard the panel's layer names came from.
+    private var namedKeyboard: UUID?
     private var state: BLEConnectionState = .connecting
     private var activeKeyboard: CompatibleKeyboard?
     private var candidates: [CompatibleKeyboard] = []
@@ -173,7 +175,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
 
     @objc private func reconnect() {
         client.start()
-        usbClient.start()
+        // Restarting the USB client would drop a keyboard that is attached and working.
+        if !usbActive { usbClient.start() }
+    }
+
+    /// Layer names outlast a disconnect, but not a change of keyboard.
+    private func keyboardBecameActive(_ keyboard: CompatibleKeyboard) {
+        if namedKeyboard != keyboard.identifier { panel.forgetLayerNames() }
+        namedKeyboard = keyboard.identifier
     }
 
     /// The panel's settings, in sections: whether it shows, which layer it sits in (above windows
@@ -309,7 +318,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
         bleKeyboard = keyboard
         guard !usbActive else { return refreshUsbHostStatus() }
         activeKeyboard = keyboard
-        if keyboard != nil { unsupportedKeyboards = [] }
+        if let keyboard {
+            unsupportedKeyboards = []
+            keyboardBecameActive(keyboard)
+        }
         statusItem.button?.toolTip = keyboard?.displayName
         buildMenu()
     }
@@ -321,6 +333,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, BLEClientDelegate {
     }
 
     func bleClient(_ client: BLEClient, didDetectUnsupported keyboards: [CompatibleKeyboard]) {
+        guard !usbActive else { return }
         unsupportedKeyboards = keyboards
         statusItem.button?.toolTip = L10n.text("Tip_Unsupported")
         buildMenu()
@@ -383,6 +396,7 @@ extension AppDelegate: USBHIDClientDelegate {
         updateMenuBarIcon()
         activeKeyboard = keyboard
         unsupportedKeyboards = []
+        keyboardBecameActive(keyboard)
         statusItem.button?.toolTip = keyboard.displayName
         applyMinor(minor)
         buildMenu()
@@ -399,8 +413,11 @@ extension AppDelegate: USBHIDClientDelegate {
         usbHostStatus = nil
         panel.update(hostStatus: nil)
         buildMenu()
-        // Back to BLE, which re-reports whatever it is connected to.
-        self.client.start()
+        // Back to BLE. Its callbacks were ignored while on USB, so reconnect to have everything
+        // read and reported again; start() alone does nothing while BLE is still connected.
+        bleKeyboard = nil
+        bleHostStatus = nil
+        self.client.restart()
     }
 
     func usbClient(_ client: USBHIDClient, didUpdate status: KeyboardStatus) {

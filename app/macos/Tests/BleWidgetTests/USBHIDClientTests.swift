@@ -78,6 +78,12 @@ final class USBHIDClientTests: XCTestCase {
         )
     }
 
+    func testHostStatus_BleOutputHostNotConnected_CannotDetermine() {
+        let status = ConnectivityStatus.parse(from: Data([0x1F, 0x00, 0x02, 0x05, 0x03, 2, 0x00]))!
+        XCTAssertFalse(status.link.connected)
+        XCTAssertEqual(USBHIDClient.hostStatus(for: status), .cannotDetermine)
+    }
+
     func testHostStatus_BleLinkInUseHere_OverridesElsewhere() {
         XCTAssertEqual(USBHIDClient.hostStatus(.activeElsewhere(slot: 2), bleLink: .inUseHere), .inUseHere)
     }

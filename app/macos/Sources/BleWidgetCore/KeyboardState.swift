@@ -69,6 +69,11 @@ public struct KeyboardStateStore {
         state.layerNames = names
     }
 
+    /// For when a different keyboard takes over: its keymap has its own names.
+    public mutating func forgetLayerNames() {
+        state.layerNames = [:]
+    }
+
     public mutating func apply(_ status: KeyboardStatus) {
         guard status.connected else { return reset() }
         state.connected = true

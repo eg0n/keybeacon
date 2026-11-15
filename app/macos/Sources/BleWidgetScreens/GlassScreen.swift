@@ -180,7 +180,8 @@ private final class GlassFace: NSView {
             return
         }
         let count = Int(state.layerCount ?? 0)
-        let caption = count > 0 ? "Layer \(Int(state.layerIndex) + 1) of \(count)" : "Layer \(state.layerIndex)"
+        let number = Int(state.layerIndex) + 1
+        let caption = count > 0 ? "Layer \(number) of \(count)" : "Layer \(number)"
         text(caption, Self.caption, .secondaryLabelColor).draw(at: NSPoint(x: 16, y: 14))
 
         let name = NSMutableAttributedString(attributedString: text(state.layerName, Self.title, .labelColor))
