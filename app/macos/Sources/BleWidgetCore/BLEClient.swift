@@ -35,7 +35,7 @@ public protocol BLEClientDelegate: AnyObject {
     func bleClient(_ client: BLEClient, didUpdateHostStatus status: LocalHostStatus?)
     /// KBP 1.3 Activity snapshot (WPM, layer count); only when the keyboard exposes `AA440AA5-…`.
     func bleClient(_ client: BLEClient, didUpdateActivity status: ActivityStatus)
-    /// KBP 1.4 Layer Name, one per layer after connecting; only when the keyboard exposes
+    /// KBP 1.3 Layer Name, one per layer after connecting; only when the keyboard exposes
     /// `AA440AA6-…`.
     func bleClient(_ client: BLEClient, didReadLayerName layer: LayerName)
 }
@@ -817,7 +817,7 @@ extension BLEClient: CBPeripheralDelegate {
         peripheral.readValue(for: characteristic)
     }
 
-    /// KBP 1.4: read every layer's name once per connection, when the layer count is known.
+    /// KBP 1.3: read every layer's name once per connection, when the layer count is known.
     private func requestLayerNames(count: UInt8) {
         guard !layerNamesRequested, layerNameCharacteristic != nil, count > 0 else { return }
         layerNamesRequested = true

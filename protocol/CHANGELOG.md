@@ -12,38 +12,6 @@ implementers (apps, firmware pins) resolve against.
 The format follows [Keep a Changelog](https://keepachangelog.com/) loosely and
 [Semantic Versioning](https://semver.org/).
 
-## 1.4.0
-
-**Released as tag `protocol-v1.4.0`.** MINOR amendment to KBP 1.x; all earlier wire contracts
-are unchanged.
-
-### Added
-
-- **Layer Name characteristic** `AA440AA6-F5ED-4C48-84A1-8062D20D3D55` (`READ` | `WRITE`): write
-  a layer index, read `[layer_index, layer_count, layer_name]`, so a host can name every layer
-  rather than only the active one (§17.2).
-- **USB HID feature report 5** for the same lookup: Set_Report selects, Get_Report reads (§17.3).
-
-### Migration
-
-- Hosts: optional. Look each layer up after connecting when `AA6` (or report 5) is present.
-- Firmware: optional.
-
-## 1.4.0
-
-**以标签 `protocol-v1.4.0` 发布。** 对 KBP 1.x 的 MINOR 修订；此前全部线上契约均不变。
-
-### 新增
-
-- **Layer Name 特征** `AA440AA6-F5ED-4C48-84A1-8062D20D3D55`（`READ` | `WRITE`）：写入层索引，读取
-  `[layer_index, layer_count, layer_name]`，主机因此能显示每一层的名字，而不只是当前层（§17.2）。
-- **USB HID feature report 5** 提供同样的查询：Set_Report 选择，Get_Report 读取（§17.3）。
-
-### 迁移
-
-- 主机：可选。连接后若存在 `AA6`（或 report 5），逐层查询。
-- 固件：可选。
-
 ## 1.3.0
 
 **Released as tag `protocol-v1.3.0`.** MINOR amendment to KBP 1.x; all earlier wire contracts
@@ -58,11 +26,21 @@ are unchanged.
   `[0]` are the left half's, bit 1 and `[1]` the right half's (§16.4).
 - **KBP over USB HID**: the AA1–AA3 and AA5 payloads on a vendor-defined interface (usage page
   `0xFFAA`, usage `0x44`), input reports on change and feature reports for reads (§16.5).
+- **Layer Name characteristic** `AA440AA6-F5ED-4C48-84A1-8062D20D3D55` (`READ` | `WRITE`): write
+  a layer index, read `[layer_index, layer_count, layer_name]`, so a host can name every layer
+  rather than only the active one (§17.2). On USB it is feature report 5: Set_Report selects,
+  Get_Report reads (§17.3).
+
+### Changed
+
+- **Producers require an encrypted link** for every KBP characteristic and CCC (§8 rule 5), so
+  only a bonded host reads the keyboard's state. Bonded hosts see no difference.
 
 ### Migration
 
 - Hosts: optional. Read `AA5` and Connectivity byte `[7]` when present; match the USB
-  interface to see keyboards on USB.
+  interface to see keyboards on USB; look each layer up after connecting when `AA6` (or report
+  5) is present. A host must be bonded (paired) to read a 1.3 producer.
 - Firmware: optional. A 1.3 producer's Connectivity payload is 8 bytes.
 
 ## 1.2.0
@@ -235,10 +213,19 @@ the existing contract; it does not alter bytes on the air.
   bit 1 与 `[1]` 属于右半（§16.4）。
 - **经 USB HID 传输 KBP**：AA1–AA3 与 AA5 载荷位于厂商自定义接口（usage page `0xFFAA`，usage
   `0x44`），变化时发 input report，读取用 feature report（§16.5）。
+- **Layer Name 特征** `AA440AA6-F5ED-4C48-84A1-8062D20D3D55`（`READ` | `WRITE`）：写入层索引，读取
+  `[layer_index, layer_count, layer_name]`，主机因此能显示每一层的名字，而不只是当前层（§17.2）。
+  USB 上为 feature report 5：Set_Report 选择，Get_Report 读取（§17.3）。
+
+### 变更
+
+- **生产者要求加密链路**：每个 KBP 特征及 CCC 都需加密（§8 第 5 条），只有已绑定的主机能读取键盘状态。
+  已绑定的主机不受影响。
 
 ### 迁移
 
-- 主机：可选。存在时读取 `AA5` 与 Connectivity 第 `[7]` 字节；匹配 USB 接口以发现经 USB 连接的键盘。
+- 主机：可选。存在时读取 `AA5` 与 Connectivity 第 `[7]` 字节；匹配 USB 接口以发现经 USB 连接的键盘；
+  若存在 `AA6`（或 report 5），连接后逐层查询。读取 1.3 生产者需先与键盘绑定（配对）。
 - 固件：可选。1.3 生产者的 Connectivity 载荷为 8 字节。
 
 ## 1.2.0

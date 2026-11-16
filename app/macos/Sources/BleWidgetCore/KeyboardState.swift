@@ -22,7 +22,7 @@ public struct KeyboardState: Equatable {
     public var layerIndex: UInt8 = 0
     /// The keymap's name for the layer, or "L<index>" when it has none.
     public var layerName = ""
-    /// Every layer's name, by index: read from the keyboard (KBP 1.4 Layer Name) or, without it,
+    /// Every layer's name, by index: read from the keyboard (KBP 1.3 Layer Name) or, without it,
     /// learned as each layer comes up.
     public var layerNames: [UInt8: String] = [:]
     /// Held modifiers, in the HID modifier byte's layout (KBP §4.1).

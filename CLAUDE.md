@@ -1,8 +1,8 @@
 # KeyBeacon (eg0n fork)
 
 A keyboard reports its live state (layer, mods, links, battery, WPM, …) to a desktop app over
-BLE or USB. This fork adds KBP over USB HID, dongle topology, the Activity payload (KBP 1.3), layer
-name lookups (KBP 1.4) and pluggable status screens to the macOS app. Firmware side:
+BLE or USB. This fork adds KBP over USB HID, dongle topology, the Activity payload and layer
+name lookups (KBP 1.3) and pluggable status screens to the macOS app. Firmware side:
 `eg0n/zmk-keybeacon`, branch `feat/dongle-usb`.
 
 ## Layout

@@ -132,7 +132,7 @@ public final class USBHIDClient {
         }
     }
 
-    /// KBP 1.4: every layer's name, by selecting each index and reading it back. The transfers
+    /// KBP 1.3: every layer's name, by selecting each index and reading it back. The transfers
     /// block, so each layer gets its own turn of the run loop and the UI stays responsive.
     /// Firmware without AA6 refuses the selection, which ends it.
     private func readLayerNames(from index: UInt8, count: UInt8, device: IOHIDDevice) {

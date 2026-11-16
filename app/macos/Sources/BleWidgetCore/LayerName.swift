@@ -3,7 +3,7 @@
 
 import Foundation
 
-/// KBP 1.4 Layer Name payload (`AA440AA6-…`, USB feature report 5): `[layer_index, layer_count,
+/// KBP 1.3 Layer Name payload (`AA440AA6-…`, USB feature report 5): `[layer_index, layer_count,
 /// name...]` for the layer the host last selected by writing its index. The name is UTF-8 and
 /// empty when the keymap gives the layer none (or the index is past the last layer).
 public struct LayerName: Equatable {

@@ -232,7 +232,7 @@ normative text is [`protocol/README.md` §16](protocol/README.md#16-kbp-13-activ
   keyboard is plugged in, so a dongle on USB needs no Bluetooth link to the Mac, and no Input
   Monitoring permission.
 
-KBP 1.4 ([`protocol/README.md` §17](protocol/README.md#17-kbp-14-layer-names-optional)) adds a
+KBP 1.3 ([`protocol/README.md` §17](protocol/README.md#17-kbp-13-layer-names-optional)) also adds a
 **Layer Name** characteristic `AA440AA6-…` (`READ` + `WRITE`): write a layer index, read
 `[layer_index, layer_count, layer_name]`. On USB it is feature report 5 (Set_Report selects,
 Get_Report reads). The app looks up every layer when it connects, so screens that show other
@@ -541,7 +541,7 @@ KBP 1.3 新增四项可选内容;旧版应用与键盘会忽略不认识的部�
   对应 AA1、AA2、AA3、AA5;每个 report 主体为 `[length, 载荷…]`。变化时发 input report,读取用 feature
   report。键盘插着时应用优先用 USB,因此插在 USB 上的接收器无需与 Mac 建立蓝牙链路,也无需"输入监控"权限。
 
-KBP 1.4([`protocol/README.md` §17](protocol/README.md))新增 **Layer Name** 特征 `AA440AA6-…`(`READ` +
+KBP 1.3([`protocol/README.md` §17](protocol/README.md))还新增 **Layer Name** 特征 `AA440AA6-…`(`READ` +
 `WRITE`):写入层索引,读取 `[layer_index, layer_count, layer_name]`。USB 上为 feature report 5(Set_Report
 选择,Get_Report 读取)。应用连接后逐层查询,因此显示其他层的状态屏(如 Classic 的滚轮)立即拥有键位图中的全部层名。
 

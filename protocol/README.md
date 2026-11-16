@@ -4,7 +4,7 @@
 
 **English** · [中文](#zh-kbp)
 
-**Version**: 1.4.0 · **License**: MIT · **Status**: Released standard
+**Version**: 1.3.0 · **License**: MIT · **Status**: Released standard
 
 > **What this is**: KeyBeacon is an open, implementation-neutral protocol by which a keyboard
 > reports its **live internal state the host cannot otherwise know** — the active layer and the
@@ -140,6 +140,10 @@ A host SHOULD merge left/right into four logical indicators:
 3. Emit no notification when the recomputed snapshot equals the last-sent snapshot.
 4. Expose the feature from the role that owns the host BLE link (for split keyboards, the
    central half) and nowhere else.
+5. (KBP 1.3) Require an encrypted link: give every KBP characteristic and its CCC encrypted
+   read/write permissions (in Zephyr, `BT_GATT_PERM_READ_ENCRYPT` / `BT_GATT_PERM_WRITE_ENCRYPT`),
+   so only a bonded host can read the keyboard's state. A host that types on the keyboard is
+   bonded already and is unaffected; a stranger in range gets *Insufficient Encryption*.
 
 ## 9. Versioning & compatibility
 
@@ -194,8 +198,10 @@ tool automates):
 - **1.3.0** — KBP 1.3 (MINOR): adds the optional Activity characteristic `AA440AA5-…`
   (`[wpm, layer_count, flags]`, flags = Caps Word and the host's Caps Lock), defines
   Connectivity byte `[7]` (`open_profiles`, which profiles have no bonded host), specifies the
-  dongle topology for `split_link_flags` and Battery, and adds KBP over USB HID for keyboards
-  reached by USB. All earlier payloads are unchanged. See §16 and `CHANGELOG.md` 1.3.0.
+  dongle topology for `split_link_flags` and Battery, adds KBP over USB HID for keyboards
+  reached by USB, adds the optional Layer Name characteristic `AA440AA6-…` (§17), and asks
+  producers to require an encrypted link (§8). All earlier payloads are unchanged. See §16–17
+  and `CHANGELOG.md` 1.3.0.
 - **1.2.0** — KBP 1.2 (MINOR): adds one optional, read-only characteristic
   `AA440AA4-…` (per-link host context: the bonded slot *this* BLE connection maps
   to, learned with zero configuration), enabling "in use on this computer" vs
@@ -561,11 +567,11 @@ a **vendor-defined HID interface**:
 | `open_profiles` | `zmk_ble_profile_is_open(i)` per profile |
 | dongle links | the split transport's per-peripheral link state (e.g. zmk-split-esb's link event) |
 
-## 17. KBP 1.4 Layer names (optional)
+## 17. KBP 1.3 Layer names (optional)
 
 ### 17.1 Scope & version
 
-- **KBP MINOR**: **1.4**. Service UUID `AA440AA0-…` and the AA1–AA5 payloads are unchanged.
+- **KBP MINOR**: **1.3**, with §16. Service UUID `AA440AA0-…` and the AA1–AA5 payloads are unchanged.
 - AA1 carries only the active layer's name. A host that shows other layers (a roller, a list)
   can look each one up here; without this characteristic it learns names as layers become active.
 
@@ -600,7 +606,7 @@ Report ID **`5`** = AA6, **feature report only** (no input report), with the §1
 
 ### 17.4 Firmware reference mapping (non-normative, ZMK)
 
-| KBP 1.4 field | ZMK reference source |
+| KBP 1.3 field | ZMK reference source |
 |------|------|
 | `layer_name` | `zmk_keymap_layer_name(zmk_keymap_layer_index_to_id(layer_index))` |
 | `layer_count` | `ZMK_KEYMAP_LAYERS_LEN` |
@@ -613,7 +619,7 @@ Report ID **`5`** = AA6, **feature report only** (no input report), with the §1
 
 <a id="zh-kbp"></a>
 
-**版本**：1.4.0 · **许可**：MIT · **状态**：已发布标准
+**版本**：1.3.0 · **许可**：MIT · **状态**：已发布标准
 
 > **本文档是什么**：KeyBeacon 是一个开放的、与实现无关的协议。通过该协议，键盘可将**主机无法直接
 > 获知的活跃内部状态**——当前激活的层与按住的修饰键——通过 BLE 上报给桌面应用。本文档是该接口的
@@ -734,6 +740,9 @@ Report ID **`5`** = AA6, **feature report only** (no input report), with the §1
 2. 上报主机难以自行廉价获取的状态（当前激活层是典型案例）。
 3. 当重新计算的快照与上次发送的快照相同时，不发出通知。
 4. 仅在拥有主机 BLE 链路的角色（对于分体键盘，即中央半）上暴露该功能，其他地方均不暴露。
+5. （KBP 1.3）要求加密链路：为每个 KBP 特征及其 CCC 设置加密读/写权限（Zephyr 中为
+   `BT_GATT_PERM_READ_ENCRYPT` / `BT_GATT_PERM_WRITE_ENCRYPT`），使只有已绑定的主机能读取键盘状态。
+   用该键盘打字的主机本就已绑定，不受影响；范围内的陌生设备会收到 *Insufficient Encryption*。
 
 ## §9. 版本与兼容性
 
@@ -784,7 +793,8 @@ MAJOR 版本信号。
 - **1.3.0** — KBP 1.3（MINOR）：新增可选 Activity 特征 `AA440AA5-…`
   （`[wpm, layer_count, flags]`，flags = Caps Word 与主机的 Caps Lock），定义 Connectivity
   第 `[7]` 字节（`open_profiles`：哪些 profile 未绑定主机），规定接收器（dongle）拓扑下
-  `split_link_flags` 与 Battery 的含义，并新增经 USB HID 传输 KBP。此前全部载荷均不变。详见 §16
+  `split_link_flags` 与 Battery 的含义，新增经 USB HID 传输 KBP，新增可选 Layer Name 特征
+  `AA440AA6-…`（§17），并要求生产者使用加密链路（§8）。此前全部载荷均不变。详见 §16–17
   与 `CHANGELOG.md` 1.3.0。
 - **1.2.0** — KBP 1.2（MINOR）：新增一个可选、只读特征 `AA440AA4-…`（每连接主机
   上下文：**本** BLE 连接对应的已绑定槽位，零配置学到），使同时绑定的多台主机间可区分
@@ -1107,11 +1117,11 @@ API 名随 ZMK 版本可能有变；实施阶段（`zmk-keybeacon` 外部模块�
 | `open_profiles` | 逐个 profile 调用 `zmk_ble_profile_is_open(i)` |
 | 接收器链路 | 分体传输的每个 peripheral 链路状态（如 zmk-split-esb 的链路事件） |
 
-## §17. KBP 1.4 层名（可选）
+## §17. KBP 1.3 层名（可选）
 
 ### §17.1 范围与版本
 
-- **KBP MINOR**：**1.4**。服务 UUID `AA440AA0-…` 与 AA1–AA5 载荷均不变。
+- **KBP MINOR**：**1.3**，与 §16 同属该版本。服务 UUID `AA440AA0-…` 与 AA1–AA5 载荷均不变。
 - AA1 只携带当前层的名字。需要显示其他层（滚轮、列表）的主机可在此逐个查询；没有此特征时，主机只能在各层被激活时逐步得知其名字。
 
 ### §17.2 Layer Name 特征（`AA440AA6-…`）
@@ -1140,7 +1150,7 @@ Report ID **`5`** = AA6，**仅 feature report**（无 input report），主体�
 
 ### §17.4 固件参考映射（非规范性，ZMK）
 
-| KBP 1.4 字段 | ZMK 参考源 |
+| KBP 1.3 字段 | ZMK 参考源 |
 |-------------|-----------|
 | `layer_name` | `zmk_keymap_layer_name(zmk_keymap_layer_index_to_id(layer_index))` |
 | `layer_count` | `ZMK_KEYMAP_LAYERS_LEN` |
