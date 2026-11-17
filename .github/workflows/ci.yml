@@ -1,8 +1,15 @@
 name: ci
 
+# Only changes to the app, its packaging or this file start a (costly) macOS runner.
 on:
   push:
+    paths: &app-paths
+      - 'app/macos/**'
+      - 'packaging/**'
+      - '.github/workflows/ci.yml'
   pull_request:
+    paths: *app-paths
+  workflow_dispatch:
 
 jobs:
   build-test:
@@ -16,13 +23,14 @@ jobs:
           swift build
           swift test
 
-      - name: bundle smoke — assemble unsigned .app/.dmg/.zip (FR-001)
+      # Ad-hoc signed: open it with right-click → Open the first time.
+      - name: Package BleWidget.app as .dmg and .zip
         run: |
-          ./packaging/make-app.sh ci-smoke
+          version="$(git rev-parse --short HEAD)"
+          ./packaging/make-app.sh "$version"
           test -d dist/BleWidget.app
-          test -f dist/BleWidget-ci-smoke.dmg
-          test -f dist/BleWidget-ci-smoke.zip
-          echo "bundle smoke OK"
+          test -f "dist/BleWidget-$version.dmg"
+          test -f "dist/BleWidget-$version.zip"
 
       - name: standalone-build assertion — no firmware-repo path (SC-003 / FR-005)
         run: |
@@ -30,3 +38,10 @@ jobs:
             echo "ERROR: app references a firmware-repo path — build is not standalone"; exit 1
           fi
           echo "OK: app builds with no firmware repo present"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BleWidget
+          path: |
+            dist/*.dmg
+            dist/*.zip
