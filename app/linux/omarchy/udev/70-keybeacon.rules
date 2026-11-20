@@ -1,0 +1,4 @@
+# KeyBeacon over USB: lets the logged-in user read a keyboard's KBP interface (the Omarchy
+# plugin's kbp-hidraw helper), and only that interface; see keybeacon-hidraw-match.
+# uaccess is applied by 73-seat-late.rules, so this file sorts before it.
+SUBSYSTEM=="hidraw", ACTION=="add|change", PROGRAM="/usr/local/libexec/keybeacon-hidraw-match /sys%p", TAG+="uaccess"

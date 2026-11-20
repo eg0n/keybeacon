@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 The TOTEM ZMK Contributors / KeyBeacon Contributors
+# SPDX-License-Identifier: MIT
+"""Reads a KeyBeacon keyboard over USB on Linux and prints its state as JSON lines.
+
+KBP over USB HID (protocol/README.md §16–17) is a vendor-defined HID interface (usage page
+0xFFAA, usage 0x44) with one report ID per payload: 1 Status (AA1), 2 Connectivity (AA2),
+3 Battery (AA3), 4 Activity (AA5), and feature report 5 for Layer Name lookups (AA6). Each
+report is the ID and 15 bytes: the payload's length, the payload, then zeros. Feature reports
+are reads, input reports arrive on change.
+
+Every line on stdout is the whole state, so a reader can replace what it had. Standard
+library only, so it runs on any Linux with Python 3.
+"""
+
+import fcntl
+import json
+import os
+import select
+import sys
+import time
+
+# Usage Page (0xFFAA), Usage (0x44): how the interface's report descriptor starts, as
+# udev/keybeacon-hidraw-match checks before granting access.
+KBP_DESCRIPTOR = b"\x06\xaa\xff\x09\x44"
+REPORT_LEN = 16
+STATUS, CONNECTIVITY, BATTERY, ACTIVITY, LAYER_NAME = 1, 2, 3, 4, 5
+OUTPUTS = {0: "unknown", 1: "usb", 2: "ble"}
+RESCAN_S = 2
+
+
+def _hidioc(nr, size):
+    return (3 << 30) | (size << 16) | (ord("H") << 8) | nr  # _IOWR('H', nr, size)
+
+
+HIDIOCSFEATURE = _hidioc(0x06, REPORT_LEN)
+HIDIOCGFEATURE = _hidioc(0x07, REPORT_LEN)
+
+
+# Payload decoders, as BleWidgetCore's: reject short payloads, ignore unknown tails.
+
+
+def payload(report, report_id):
+    """The payload in a report, which may or may not still carry its report ID byte."""
+    body = report[1:] if len(report) == REPORT_LEN and report[0] == report_id else report
+    if not body or body[0] > len(body) - 1:
+        return None
+    return bytes(body[1 : 1 + body[0]])
+
+
+def parse_status(p):
+    if len(p) < 2:
+        return None
+    name = p[2:].decode("utf-8", "ignore")
+    return {"layer": p[0], "layerName": name or f"L{p[0]}", "mods": p[1]}
+
+
+def parse_connectivity(p):
+    if len(p) < 7:
+        return None
+    caps = p[0]
+    out = {
+        "split": bool(caps & 0x01),
+        "output": OUTPUTS.get(p[5], "unknown") if caps & 0x10 else "unknown",
+    }
+    if caps & 0x02:
+        out["hostConnected"] = bool(p[1] & 0x01)
+    if caps & 0x04 and p[3]:
+        out["profile"] = {"index": min(p[2] & 0x7F, p[3]), "open": bool(p[2] & 0x80), "slots": p[3]}
+    if caps & 0x08:
+        out["halves"] = {"left": bool(p[4] & 0x01), "right": bool(p[4] & 0x02)}
+    if caps & 0x20:
+        out["charging"] = {
+            "left": bool(p[6] & 0x01),
+            "right": bool(p[6] & 0x02) if caps & 0x40 else False,
+        }
+    if len(p) >= 8:
+        out["openProfiles"] = p[7]
+    return out
+
+
+def _percent(b):
+    return b if b <= 100 else None  # 255 is "unavailable", 101–254 reserved
+
+
+def parse_battery(p, split):
+    if split:
+        return {"left": _percent(p[0]), "right": _percent(p[1])} if len(p) == 2 else None
+    return {"overall": _percent(p[0])} if len(p) == 1 else None
+
+
+def parse_activity(p):
+    if len(p) < 2:
+        return None
+    flags = p[2] if len(p) > 2 else 0
+    return {
+        "wpm": None if p[0] == 255 else p[0],
+        "layerCount": p[1],
+        "capsWord": bool(flags & 0x01),
+        "capsLock": bool(flags & 0x02),
+    }
+
+
+def parse_layer_name(p):
+    if len(p) < 2:
+        return None
+    raw = p[2:].split(b"\0", 1)[0]
+    return p[0], raw.decode("utf-8", "ignore")
+
+
+# Device access.
+
+
+def find_device(sys_root="/sys/class/hidraw"):
+    """The first hidraw node whose report descriptor is KeyBeacon's, and its HID name."""
+    try:
+        nodes = sorted(os.listdir(sys_root))
+    except OSError:
+        return None
+    for node in nodes:
+        base = os.path.join(sys_root, node, "device")
+        try:
+            with open(os.path.join(base, "report_descriptor"), "rb") as f:
+                if not f.read().startswith(KBP_DESCRIPTOR):
+                    continue
+            name = ""
+            with open(os.path.join(base, "uevent")) as f:
+                for line in f:
+                    if line.startswith("HID_NAME="):
+                        name = line.split("=", 1)[1].strip()
+            return "/dev/" + node, name
+        except OSError:
+            continue
+    return None
+
+
+def get_feature(fd, report_id):
+    buf = bytearray(REPORT_LEN)
+    buf[0] = report_id
+    n = fcntl.ioctl(fd, HIDIOCGFEATURE, buf, True)
+    return payload(bytes(buf[:n]), report_id)
+
+
+def set_feature(fd, report_id, data):
+    buf = bytearray(REPORT_LEN)
+    buf[0] = report_id
+    buf[1] = len(data)
+    buf[2 : 2 + len(data)] = data
+    fcntl.ioctl(fd, HIDIOCSFEATURE, buf, True)
+
+
+class Keyboard:
+    """One attached keyboard's state, folded from its payloads."""
+
+    def __init__(self, path, name):
+        self.state = {"connected": True, "device": path, "name": name, "layers": []}
+
+    def apply(self, report_id, p):
+        if p is None:
+            return
+        if report_id == STATUS:
+            parsed = parse_status(p)
+        elif report_id == CONNECTIVITY:
+            parsed = parse_connectivity(p)
+        elif report_id == BATTERY:
+            # Its length depends on AA2's is_split, so it waits for AA2.
+            if "split" not in self.state:
+                return
+            parsed = parse_battery(p, self.state["split"])
+            parsed = parsed and {"battery": parsed}
+        elif report_id == ACTIVITY:
+            parsed = parse_activity(p)
+        else:
+            return
+        if parsed:
+            self.state.update(parsed)
+
+    def read_layer_names(self, fd):
+        names = []
+        for index in range(self.state.get("layerCount", 0)):
+            set_feature(fd, LAYER_NAME, bytes([index]))
+            got = parse_layer_name(get_feature(fd, LAYER_NAME) or b"")
+            names.append(got[1] if got and got[0] == index else "")
+        self.state["layers"] = names
+
+
+def emit(state):
+    sys.stdout.write(json.dumps(state, separators=(",", ":")) + "\n")
+    sys.stdout.flush()
+
+
+def session(fd, keyboard):
+    # AA2 first, so the battery payload's length can be checked against is_split.
+    for report_id in (CONNECTIVITY, BATTERY, STATUS, ACTIVITY):
+        keyboard.apply(report_id, get_feature(fd, report_id))
+    keyboard.read_layer_names(fd)
+    emit(keyboard.state)
+    last = keyboard.state.copy()
+    while True:
+        ready, _, _ = select.select([fd], [], [])
+        if not ready:
+            continue
+        report = os.read(fd, 64)  # OSError once the device is gone
+        if not report:
+            return
+        keyboard.apply(report[0], payload(report, report[0]))
+        if keyboard.state != last:
+            emit(keyboard.state)
+            last = keyboard.state.copy()
+
+
+def main():
+    reported = None
+    while True:
+        found = find_device()
+        if not found:
+            gone = {"connected": False}
+            if reported != gone:
+                emit(gone)
+                reported = gone
+            time.sleep(RESCAN_S)
+            continue
+        path, name = found
+        try:
+            fd = os.open(path, os.O_RDWR)
+        except PermissionError:
+            # No udev rule yet: the plugin's install.sh adds one.
+            denied = {"connected": False, "error": "permission", "device": path}
+            if reported != denied:
+                emit(denied)
+                reported = denied
+            time.sleep(RESCAN_S)
+            continue
+        except OSError:
+            time.sleep(RESCAN_S)
+            continue
+        try:
+            session(fd, Keyboard(path, name))
+        except OSError:
+            pass  # unplugged
+        finally:
+            os.close(fd)
+        reported = None
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (KeyboardInterrupt, BrokenPipeError):
+        pass

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Copyright (c) 2026 The TOTEM ZMK Contributors / KeyBeacon Contributors
+# SPDX-License-Identifier: MIT
+#
+# udev PROGRAM for 70-keybeacon.rules: exits 0 only for a hidraw node whose report descriptor
+# is KeyBeacon's vendor interface (Usage Page 0xFFAA, Usage 0x44), so the logged-in user gets
+# that interface alone and never a keyboard's own HID interface, which carries keystrokes.
+# $1 is the node's sysfs path.
+od -An -tx1 -v "$1/device/report_descriptor" 2>/dev/null | tr -d ' \n' | grep -q '^06aaff0944'
