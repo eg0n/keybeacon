@@ -23,8 +23,10 @@ Column {
         if (kb.output === "usb") return "USB · typing here"
         if (kb.output === "ble") {
             var n = kb.profile ? kb.profile.index : 0
+            // The profile dots show which profile; the header stays short enough to fit.
             if (n && n === kb.thisProfile) return "Bluetooth · typing here"
-            return "Bluetooth" + (n ? " · profile " + n : "") + (kb.thisProfile ? " · another computer" : "")
+            if (kb.thisProfile) return "Bluetooth · other computer"
+            return "Bluetooth" + (n ? " · profile " + n : "")
         }
         return "Connected"
     }
@@ -152,14 +154,6 @@ Column {
                 }
             }
         }
-    }
-    Text {
-        visible: root.kb.connected && !!root.kb.profile && root.kb.thisProfile > 0
-        textFormat: Text.PlainText
-        text: "Profile " + root.kb.thisProfile + " is this computer"
-        color: root.dim
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
     }
 
     // Modifiers held, Caps Lock / Caps Word, and typing speed.
