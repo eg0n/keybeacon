@@ -100,6 +100,54 @@ class KeyboardTest(unittest.TestCase):
         self.assertEqual(kb.state, before)
 
 
+DEV = "/org/bluez/hci0/dev_E1_C5_9D_47_45_5B"
+AA2 = bytes([0x1F, 0, 0x82, 4, 3, 1, 0, 14])
+
+
+def bluez(connected=True, aa4=True):
+    """BlueZ's GetManagedObjects as busctl --json=short gives it: variants are {type, data}."""
+
+    def char(uuid):
+        return {"org.bluez.GattCharacteristic1": {"UUID": {"type": "s", "data": uuid}}}
+
+    objects = {
+        DEV: {"org.bluez.Device1": {"Connected": {"type": "b", "data": connected}}},
+        DEV + "/service0032/char0036": char(kbp.AA2_UUID),
+    }
+    if aa4:
+        objects[DEV + "/service0032/char003c"] = char(kbp.AA4_UUID)
+    return objects
+
+
+class ThisProfileTest(unittest.TestCase):
+    def reader(self, aa2=AA2, aa4=b"\x01"):
+        values = {DEV + "/service0032/char0036": aa2, DEV + "/service0032/char003c": aa4}
+        return lambda path: values.get(path)
+
+    def test_matching_keyboard_gives_its_slot(self):
+        self.assertEqual(kbp.find_this_profile(bluez(), self.reader(), AA2), 1)
+
+    def test_another_keyboard_or_a_stale_read_gives_none(self):
+        other = bytes([0x1F, 0, 0x81, 4, 3, 2, 0, 12])
+        self.assertIsNone(kbp.find_this_profile(bluez(), self.reader(aa2=other), AA2))
+
+    def test_disconnected_unresolved_or_old_firmware_gives_none(self):
+        self.assertIsNone(kbp.find_this_profile(bluez(connected=False), self.reader(), AA2))
+        self.assertIsNone(kbp.find_this_profile(bluez(), self.reader(aa4=b"\x00"), AA2))
+        self.assertIsNone(kbp.find_this_profile(bluez(aa4=False), self.reader(), AA2))
+        self.assertIsNone(kbp.find_this_profile({}, self.reader(), AA2))
+
+    def test_keyboard_state(self):
+        kb = kbp.Keyboard("/dev/hidraw2", "TOTEM")
+        kb.refresh_this_profile(bluez(), self.reader())
+        self.assertNotIn("thisProfile", kb.state)  # no AA2 from USB yet
+        kb.apply(kbp.CONNECTIVITY, AA2)
+        kb.refresh_this_profile(bluez(), self.reader())
+        self.assertEqual(kb.state["thisProfile"], 1)
+        kb.refresh_this_profile(bluez(connected=False), self.reader())
+        self.assertNotIn("thisProfile", kb.state)
+
+
 class FindDeviceTest(unittest.TestCase):
     def make(self, root, node, descriptor, name):
         base = os.path.join(root, node, "device")

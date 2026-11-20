@@ -17,6 +17,7 @@ import fcntl
 import json
 import os
 import select
+import subprocess
 import sys
 import time
 
@@ -27,6 +28,9 @@ REPORT_LEN = 16
 STATUS, CONNECTIVITY, BATTERY, ACTIVITY, LAYER_NAME = 1, 2, 3, 4, 5
 OUTPUTS = {0: "unknown", 1: "usb", 2: "ble"}
 RESCAN_S = 2
+BLUEZ_REFRESH_S = 20
+AA2_UUID = "aa440aa2-f5ed-4c48-84a1-8062d20d3d55"
+AA4_UUID = "aa440aa4-f5ed-4c48-84a1-8062d20d3d55"
 
 
 def _hidioc(nr, size):
@@ -149,11 +153,73 @@ def set_feature(fd, report_id, data):
     fcntl.ioctl(fd, HIDIOCSFEATURE, buf, True)
 
 
+# This computer's profile. Over USB the keyboard can't tell which of its Bluetooth hosts is the
+# computer it's plugged into, but BlueZ can: every host gets byte-identical payloads, so a
+# connected device whose Connectivity (AA2) matches the USB one is this keyboard, and its Link
+# Slot (AA4) is the profile this computer is bonded on. busctl keeps this standard-library only.
+
+
+def busctl(*args):
+    try:
+        out = subprocess.run(
+            ["busctl", "--json=short", *args], capture_output=True, text=True, timeout=3, check=True
+        )
+        return json.loads(out.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+def bluez_objects():
+    got = busctl(
+        "call", "org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects"
+    )
+    return got["data"][0] if got else {}
+
+
+def read_characteristic(path):
+    got = busctl(
+        "call", "org.bluez", path, "org.bluez.GattCharacteristic1", "ReadValue", "a{sv}", "0"
+    )
+    return bytes(got["data"][0]) if got else None
+
+
+def find_this_profile(objects, read, usb_aa2):
+    """The 1-based profile this computer is bonded on, or None; objects is GetManagedObjects'."""
+    chars = {}  # device path -> {uuid: characteristic path}
+    connected = []
+    for path, ifaces in objects.items():
+        device = ifaces.get("org.bluez.Device1")
+        if device and device.get("Connected", {}).get("data"):
+            connected.append(path)
+        char = ifaces.get("org.bluez.GattCharacteristic1")
+        if char:
+            uuid = str(char.get("UUID", {}).get("data", "")).lower()
+            chars.setdefault(path.split("/service", 1)[0], {})[uuid] = path
+    for device in sorted(connected):
+        found = chars.get(device, {})
+        if AA2_UUID in found and AA4_UUID in found and read(found[AA2_UUID]) == usb_aa2:
+            slot = read(found[AA4_UUID])
+            if slot and slot[0] & 0x7F:
+                return slot[0] & 0x7F
+    return None
+
+
 class Keyboard:
     """One attached keyboard's state, folded from its payloads."""
 
     def __init__(self, path, name):
         self.state = {"connected": True, "device": path, "name": name, "layers": []}
+        self.aa2 = None
+
+    def refresh_this_profile(self, objects=None, read=read_characteristic):
+        slot = None
+        if self.aa2:
+            objects = bluez_objects() if objects is None else objects
+            slot = find_this_profile(objects, read, self.aa2)
+        if slot:
+            self.state["thisProfile"] = slot
+        else:
+            self.state.pop("thisProfile", None)
 
     def apply(self, report_id, p):
         if p is None:
@@ -162,6 +228,8 @@ class Keyboard:
             parsed = parse_status(p)
         elif report_id == CONNECTIVITY:
             parsed = parse_connectivity(p)
+            if parsed:
+                self.aa2 = p
         elif report_id == BATTERY:
             # Its length depends on AA2's is_split, so it waits for AA2.
             if "split" not in self.state:
@@ -194,16 +262,22 @@ def session(fd, keyboard):
     for report_id in (CONNECTIVITY, BATTERY, STATUS, ACTIVITY):
         keyboard.apply(report_id, get_feature(fd, report_id))
     keyboard.read_layer_names(fd)
+    keyboard.refresh_this_profile()
     emit(keyboard.state)
     last = keyboard.state.copy()
     while True:
-        ready, _, _ = select.select([fd], [], [])
-        if not ready:
-            continue
-        report = os.read(fd, 64)  # OSError once the device is gone
-        if not report:
-            return
-        keyboard.apply(report[0], payload(report, report[0]))
+        # Bluetooth links come and go without a USB report, so BlueZ is polled too.
+        ready, _, _ = select.select([fd], [], [], BLUEZ_REFRESH_S)
+        if ready:
+            report = os.read(fd, 64)  # OSError once the device is gone
+            if not report:
+                return
+            aa2 = keyboard.aa2
+            keyboard.apply(report[0], payload(report, report[0]))
+            if keyboard.aa2 != aa2:
+                keyboard.refresh_this_profile()
+        else:
+            keyboard.refresh_this_profile()
         if keyboard.state != last:
             emit(keyboard.state)
             last = keyboard.state.copy()

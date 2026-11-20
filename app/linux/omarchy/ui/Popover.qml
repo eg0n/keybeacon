@@ -23,7 +23,8 @@ Column {
         if (kb.output === "usb") return "USB · typing here"
         if (kb.output === "ble") {
             var n = kb.profile ? kb.profile.index : 0
-            return "Bluetooth" + (n ? " · profile " + n : "")
+            if (n && n === kb.thisProfile) return "Bluetooth · typing here"
+            return "Bluetooth" + (n ? " · profile " + n : "") + (kb.thisProfile ? " · another computer" : "")
         }
         return "Connected"
     }
@@ -140,8 +141,25 @@ Column {
                 color: active && root.kb.output === "ble" ? root.accent : "transparent"
                 border.width: Math.max(1, Style.space(1.5))
                 border.color: active ? root.accent : (open ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.25) : root.fg)
+                // This computer's profile.
+                Rectangle {
+                    visible: index + 1 === root.kb.thisProfile
+                    anchors.centerIn: parent
+                    width: Math.round(parent.width / 3)
+                    height: width
+                    radius: width / 2
+                    color: parent.active && root.kb.output === "ble" ? Commons.Color.popups.background : root.fg
+                }
             }
         }
+    }
+    Text {
+        visible: root.kb.connected && !!root.kb.profile && root.kb.thisProfile > 0
+        textFormat: Text.PlainText
+        text: "Profile " + root.kb.thisProfile + " is this computer"
+        color: root.dim
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
     }
 
     // Modifiers held, Caps Lock / Caps Word, and typing speed.

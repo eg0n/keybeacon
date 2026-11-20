@@ -19,6 +19,8 @@ QtObject {
     readonly property var halves: state.halves || null
     readonly property var profile: state.profile || null
     readonly property string output: state.output || "unknown"
+    // The profile this computer is bonded on (found through BlueZ), or 0 when unknown.
+    readonly property int thisProfile: state.thisProfile || 0
 
     // The lowest reported battery: a split's weaker half.
     readonly property var lowestBattery: {
