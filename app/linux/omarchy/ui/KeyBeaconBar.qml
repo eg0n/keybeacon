@@ -64,7 +64,8 @@ BarWidget {
         open: root.opened
         popoutSwitchClosing: root.popoutSwitchClosing
         contentWidth: Style.space(300)
-        contentHeight: popover.implicitHeight
+        // The card's height includes its padding and border.
+        contentHeight: popover.implicitHeight + verticalContentInset
         Popover {
             id: popover
             anchors.left: parent.left

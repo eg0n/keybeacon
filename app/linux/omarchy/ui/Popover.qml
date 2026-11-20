@@ -170,13 +170,13 @@ Column {
         }
     }
     Text {
-        visible: root.kb.connected
+        visible: root.kb.connected && text !== ""
         textFormat: Text.PlainText
         text: {
             var parts = []
             if (root.st.capsLock) parts.push("Caps Lock")
             if (root.st.capsWord) parts.push("Caps Word")
-            if (typeof root.st.wpm === "number") parts.push(root.st.wpm + " WPM")
+            if (root.st.wpm > 0) parts.push(root.st.wpm + " WPM")
             return parts.join(" · ")
         }
         color: root.fg
