@@ -2,7 +2,8 @@
 
 A keyboard reports its live state (layer, mods, links, battery, WPM, …) to a desktop app over
 BLE or USB. This fork adds KBP over USB HID, dongle topology, the Activity payload and layer
-name lookups (KBP 1.3) and pluggable status screens to the macOS app. Firmware side:
+name lookups (KBP 1.3), pluggable status screens to the macOS app, and an Omarchy (Linux) bar
+widget over USB. Firmware side:
 `eg0n/zmk-keybeacon`, branch `feat/dongle-usb`.
 
 ## Layout
@@ -12,6 +13,7 @@ name lookups (KBP 1.3) and pluggable status screens to the macOS app. Firmware s
 | `protocol/` | The KeyBeacon Protocol (KBP), English and Chinese halves; `VERSION`, `CHANGELOG.md` |
 | `app/macos/` | Swift package: the menu-bar app (`BleWidget`), its core, screens and preview tool |
 | `app/macos/scripts/` | `prospector_assets.py`: generates screen assets from a prospector-zmk-module checkout |
+| `app/linux/omarchy/` | Omarchy 4 Quickshell bar widget (QML) and its `kbp-hidraw` helper (Python, hidraw); see its README. QML changes need `omarchy restart shell` |
 | `app/windows/` | Windows app (C#); not maintained in this fork |
 | `conformance/` | Python checklist tool for keyboards (`pytest conformance/tests`) |
 | `packaging/make-app.sh` | Builds `dist/BleWidget.app`, `.zip` and `.dmg` (ad-hoc signed) |
