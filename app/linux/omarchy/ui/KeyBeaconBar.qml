@@ -36,6 +36,9 @@ BarWidget {
         // nf-md-keyboard / nf-md-keyboard_off
         text: root.kb.connected ? "󰌌" : "󰌐"
         labelText: root.vertical ? "" : root.label
+        // The slot is fixed-width; widen it to fit the label, as the power widget does.
+        slotSize: Style.bar.iconSlot + (labelText ? labelMetrics.advanceWidth + Style.space(4) + Style.spacing.md : 0)
+        tooltipText: ""
         opacity: root.kb.connected ? 1 : 0.5
         useActiveColor: false
         active: root.opened
@@ -44,6 +47,13 @@ BarWidget {
             root.popoutSwitchClosing = false
             root.opened = !root.opened
         }
+    }
+
+    TextMetrics {
+        id: labelMetrics
+        font.family: button.fontFamily
+        font.pixelSize: button.fontSize
+        text: button.labelText
     }
 
     KeyboardPanel {
